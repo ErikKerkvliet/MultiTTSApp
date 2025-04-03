@@ -135,70 +135,226 @@ class TTSApp(tk.Tk):
         """Creates the parameter frame specific to the ElevenLabs engine."""
         self.elevenlabs_frame = ttk.LabelFrame(parent, text="ElevenLabs Parameters", padding="10")
 
-        # --- Key Selection ---
-        key_select_frame = ttk.Frame(self.elevenlabs_frame)
-        key_select_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(key_select_frame, text="Select Key (.env):").pack(side=tk.LEFT, padx=(0, 5))
+        # --- Key Selection with aligned labels ---
+        key_frame = ttk.Frame(self.elevenlabs_frame)
+        key_frame.pack(fill=tk.X, pady=5)
+
+        # Create a label frame with fixed width for alignment
+        label_width = 15
+
+        # Key Selection Row
+        key_select_frame = ttk.Frame(key_frame)
+        key_select_frame.pack(fill=tk.X, pady=(0, 5))
+        key_label = ttk.Label(key_select_frame, text="Select Key (.env):", width=label_width, anchor=tk.W)
+        key_label.pack(side=tk.LEFT)
+
         # Get key names from the dictionary populated in __init__
         key_names = list(self.elevenlabs_api_keys.keys())
         self.elevenlabs_key_selector = ttk.Combobox(
             key_select_frame,
             textvariable=self.selected_elevenlabs_key_name,
             values=key_names,
-            state="readonly" if key_names else "disabled", # Disable if no keys found
+            state="readonly" if key_names else "disabled",  # Disable if no keys found
             width=20
         )
-        self.elevenlabs_key_selector.pack(side=tk.LEFT, padx=(0, 10))
+        self.elevenlabs_key_selector.pack(side=tk.LEFT, padx=(0, 5))
         # When a key is selected from the dropdown, call on_key_selected
         self.elevenlabs_key_selector.bind("<<ComboboxSelected>>", self.on_key_selected)
-        # Set the first key as default display if available (actual use happens in on_key_selected)
+        # Set the first key as default display if available
         if key_names: self.selected_elevenlabs_key_name.set(key_names[0])
 
-        # --- Manual Key Input ---
-        key_manual_frame = ttk.Frame(self.elevenlabs_frame)
+        # Add credits display button to the right of key selector
+        self.check_credits_button = ttk.Button(
+            key_select_frame,
+            text="Check Credits",
+            command=self.check_elevenlabs_credits,
+            state=tk.DISABLED  # Initially disabled until a key is validated
+        )
+        self.check_credits_button.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Credits label to display remaining credits
+        self.credits_label = ttk.Label(key_select_frame, text="Credits: -")
+        self.credits_label.pack(side=tk.LEFT)
+
+        # --- Manual Key Input Row ---
+        key_manual_frame = ttk.Frame(key_frame)
         key_manual_frame.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(key_manual_frame, text="Or enter manually:").pack(side=tk.LEFT, padx=(0, 5))
+        manual_label = ttk.Label(key_manual_frame, text="Or enter manually:", width=label_width, anchor=tk.W)
+        manual_label.pack(side=tk.LEFT)
+
         self.elevenlabs_api_key_entry = ttk.Entry(
             key_manual_frame,
             textvariable=self.elevenlabs_api_key_manual_input,
-            show="*", # Hide the key entry
+            show="*",  # Hide the key entry
             width=30
         )
-        self.elevenlabs_api_key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(key_manual_frame, text="Use This", command=self.use_manual_key).pack(side=tk.LEFT, padx=(5, 0))
+        self.elevenlabs_api_key_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        ttk.Button(key_manual_frame, text="Use This", command=self.use_manual_key).pack(side=tk.LEFT)
 
-        # --- Voice Selection ---
+        # --- Voice Selection Row ---
         voice_frame = ttk.Frame(self.elevenlabs_frame)
         voice_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(voice_frame, text="Voice:").pack(side=tk.LEFT, padx=(0, 5))
+        voice_label = ttk.Label(voice_frame, text="Voice:", width=label_width, anchor=tk.W)
+        voice_label.pack(side=tk.LEFT)
+
         self.elevenlabs_voice_dropdown = ttk.Combobox(
             voice_frame,
             textvariable=self.elevenlabs_voice_name,
-            state="disabled", # Initially disabled until voices are loaded
+            state="disabled",  # Initially disabled until voices are loaded
             width=38
         )
-        self.elevenlabs_voice_dropdown.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.elevenlabs_voice_dropdown.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         self.refresh_voices_button = ttk.Button(
             voice_frame,
             text="Refresh",
             command=self.refresh_elevenlabs_voices_thread,
-            state=tk.DISABLED # Initially disabled until a key is validated
+            state=tk.DISABLED  # Initially disabled until a key is validated
         )
-        self.refresh_voices_button.pack(side=tk.LEFT, padx=(5, 0))
+        self.refresh_voices_button.pack(side=tk.LEFT)
 
-        # --- Model Selection ---
+        # --- Model Selection Row ---
         model_frame = ttk.Frame(self.elevenlabs_frame)
         model_frame.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(model_frame, text="Model:").pack(side=tk.LEFT, padx=(0, 5))
+        model_label = ttk.Label(model_frame, text="Model:", width=label_width, anchor=tk.W)
+        model_label.pack(side=tk.LEFT)
+
         self.elevenlabs_model_dropdown = ttk.Combobox(
             model_frame,
             textvariable=self.elevenlabs_model_id,
             values=ELEVENLABS_MODELS,
-            state="readonly" # User must choose from the list
+            state="readonly"  # User must choose from the list
         )
         self.elevenlabs_model_dropdown.pack(side=tk.LEFT, fill=tk.X, expand=True)
         # Set a default model if the list is not empty
         if ELEVENLABS_MODELS: self.elevenlabs_model_id.set(ELEVENLABS_MODELS[0])
+
+    def check_elevenlabs_credits(self):
+        """Fetches and displays the current credit status for the selected ElevenLabs API key."""
+        if not self.current_elevenlabs_key:
+            messagebox.showwarning("API Key Needed",
+                                   "Please select or enter a valid ElevenLabs API key first.",
+                                   parent=self)
+            return
+
+        self.update_status("Checking ElevenLabs credits...")
+        # Disable button during check
+        if hasattr(self, 'check_credits_button'):
+            self.check_credits_button.config(state=tk.DISABLED)
+
+        # Start a background thread to fetch credit information
+        thread = threading.Thread(
+            target=self._get_credits_worker,
+            args=(self.current_elevenlabs_key,),
+            daemon=True
+        )
+        thread.start()
+
+    def _get_credits_worker(self, api_key):
+        """Worker function (runs in thread) to fetch credit information using the provided key."""
+        credits_result, error = None, None
+        try:
+            # Call the engine function with the validated API key
+            credits_result = elevenlabs_engine.get_subscription_info(api_key)
+        except Exception as e:
+            error = e
+            logging.error(f"Error in _get_credits_worker thread: {e}", exc_info=True)
+
+        # Schedule the UI update back on the main thread
+        self.after(0, self._update_elevenlabs_credits_display, credits_result, error)
+
+    def _update_elevenlabs_credits_display(self, credits_result, error):
+        """Updates the credits display in the main GUI thread."""
+        # Re-enable check credits button
+        if hasattr(self, 'check_credits_button'):
+            new_state = tk.NORMAL if self.current_elevenlabs_key else tk.DISABLED
+            self.check_credits_button.config(state=new_state)
+
+        # Handle errors
+        if error:
+            self.update_status(f"Error fetching credits: {error}", clear_after=10)
+            messagebox.showerror("Error Fetching Credits",
+                                 f"Could not fetch ElevenLabs credits:\n{error}",
+                                 parent=self)
+            if hasattr(self, 'credits_label'):
+                self.credits_label.config(text="Credits: Error")
+            return
+
+        # Process successful results
+        if credits_result is not None:
+            try:
+                # Extract the character counts and limits
+                character_count = credits_result.get('character_count', 'N/A')
+                character_limit = credits_result.get('character_limit', 'N/A')
+
+                # Format the credit information
+                if isinstance(character_count, (int, float)) and isinstance(character_limit, (int, float)):
+                    remaining = character_limit - character_count
+                    percentage = (remaining / character_limit * 100) if character_limit > 0 else 0
+                    credit_text = f"Credits: {remaining:,}/{character_limit:,} ({percentage:.1f}%)"
+                else:
+                    credit_text = f"Credits: {character_count}/{character_limit}"
+
+                # Update the display
+                if hasattr(self, 'credits_label'):
+                    self.credits_label.config(text=credit_text)
+
+                self.update_status("Credits information updated.", clear_after=5)
+            except Exception as e:
+                logging.error(f"Error processing credit information: {e}", exc_info=True)
+                if hasattr(self, 'credits_label'):
+                    self.credits_label.config(text="Credits: Parse Error")
+        else:
+            # Should ideally not happen if error is None
+            self.update_status("Unknown state after fetching credits.", clear_after=10)
+            if hasattr(self, 'credits_label'):
+                self.credits_label.config(text="Credits: Unknown")
+
+    def _set_active_elevenlabs_key(self, key_to_set: Optional[str]) -> bool:
+        """Validates the given key using the engine and updates UI state."""
+        self.update_status(f"Validating ElevenLabs API key...")
+        validated_key = elevenlabs_engine.validate_api_key(key_to_set)
+
+        if validated_key:
+            self.current_elevenlabs_key = validated_key  # Store the validated key
+            self.update_status("ElevenLabs API key validated successfully.", clear_after=5)
+
+            # Enable the refresh voices button now that we have a valid key
+            if hasattr(self, 'refresh_voices_button'):
+                self.refresh_voices_button.config(state=tk.NORMAL)
+
+            # Enable the check credits button now that we have a valid key
+            if hasattr(self, 'check_credits_button'):
+                self.check_credits_button.config(state=tk.NORMAL)
+
+            # Automatically fetch voices after successful validation
+            self.refresh_elevenlabs_voices_thread()
+
+            # Automatically check credits after successful validation
+            self.check_elevenlabs_credits()
+
+            return True
+        else:
+            self.current_elevenlabs_key = None  # Clear the active key
+            self.update_status("ElevenLabs API key validation failed.", clear_after=10)
+
+            # Disable voice-related controls
+            if hasattr(self, 'refresh_voices_button'):
+                self.refresh_voices_button.config(state=tk.DISABLED)
+
+            # Disable credits button
+            if hasattr(self, 'check_credits_button'):
+                self.check_credits_button.config(state=tk.DISABLED)
+
+            if hasattr(self, 'credits_label'):
+                self.credits_label.config(text="Credits: -")
+
+            if hasattr(self, 'elevenlabs_voice_dropdown'):
+                self.elevenlabs_voice_dropdown.config(state=tk.DISABLED, values=[])
+                self.elevenlabs_voice_name.set("")
+
+            self.elevenlabs_voices.clear()  # Clear internal voice mapping
+
+            return False
 
     # --- Text Input Context Menu Methods ---
     def _create_text_context_menu(self):
@@ -809,21 +965,34 @@ class TTSApp(tk.Tk):
         # Bark
         self.bark_voice_preset = tk.StringVar(self)
         # ElevenLabs
-        self.elevenlabs_api_keys = {} # Dict to store {Name: Key} from .env
-        self.selected_elevenlabs_key_name = tk.StringVar(self) # Name of key selected in dropdown
-        self.elevenlabs_api_key_manual_input = tk.StringVar(self) # Key entered manually
-        self.current_elevenlabs_key: Optional[str] = None # The currently active *validated* key
-        self.elevenlabs_voice_name = tk.StringVar(self); self.elevenlabs_model_id = tk.StringVar(self); self.elevenlabs_voices = {} # {Name: ID} map
+        self.model_choice = tk.StringVar(self)
+        # XTTS
+        self.xtts_speaker_wav = tk.StringVar(self)
+        self.xtts_language = tk.StringVar(self, value="nl")
+        # Piper
+        self.piper_onnx_path = tk.StringVar(self)
+        self.piper_json_path = tk.StringVar(self)
+        # Bark
+        self.bark_voice_preset = tk.StringVar(self)
+        # ElevenLabs
+        self.elevenlabs_api_keys = {}  # Dict to store {Name: Key} from .env
+        self.selected_elevenlabs_key_name = tk.StringVar(self)  # Name of key selected in dropdown
+        self.elevenlabs_api_key_manual_input = tk.StringVar(self)  # Key entered manually
+        self.current_elevenlabs_key = None  # The currently active *validated* key
+        self.elevenlabs_voice_name = tk.StringVar(self)
+        self.elevenlabs_model_id = tk.StringVar(self)
+        self.elevenlabs_voices = {}  # {Name: ID} map
         # General / Playback
         self.output_file_path = tk.StringVar(self); self.audio_files = {}; self.selected_audio_path = None; self.audio_duration = 0.0; self.playback_update_id = None; self.is_paused = False; self.is_seeking = False
 
         # --- Read API Keys from .env ---
         key_prefix = "ELEVENLABS_API_KEY_"
         for key, value in os.environ.items():
-            if key.startswith(key_prefix) and value: # Check prefix and ensure value exists
+            if key.startswith(key_prefix) and value:  # Check prefix and ensure value exists
                 name = key.replace(key_prefix, "")
-                if name: self.elevenlabs_api_keys[name] = value # Store if name part is not empty
-        logging.info(f"{len(self.elevenlabs_api_keys)} ElevenLabs keys found from .env: {list(self.elevenlabs_api_keys.keys())}")
+                if name:
+                    self.elevenlabs_api_keys[name] = value  # Store if name part is not empty
+                    logging.info(f"Found ElevenLabs API key: {name}")
 
         # --- Create UI Elements ---
         self._create_text_context_menu() # Create context menu early
