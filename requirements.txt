@@ -1,21 +1,13 @@
-TTS>=0.21.1,<0.22.0          # For XTTSv2
-piper-tts>=1.2.0             # For Piper TTS
-torch>=2.0.0                 # PyTorch (GPU support recommended)
-transformers>=4.30.0         # For Bark
-accelerate>=0.23.0           # Optional acceleration for transformers
-elevenlabs>=0.2.26           # ElevenLabs API client
-soundfile>=0.12.1            # Audio file handling
-scipy>=1.10.1                # Signal processing
-numpy>=1.24.0                # Numerical operations
-python-dotenv>=1.0.0         # Environment variable management
-pygame>=2.5.0                # For audio playback in testing
-httpx>=0.24.1                # HTTP client used by elevenlabs
-
-# REST API server dependencies
-# fastapi>=0.100.0             # REST API framework
-# uvicorn>=0.23.0              # ASGI server
-# python-multipart>=0.0.6      # For file uploads
-# pydantic>=2.0.0              # Data validation
-
-# Optional dependencies
-pydub>=0.25.1                # For MP3 handling (used by ElevenLabs)
+torch
+TTS
+piper-tts
+transformers>=4.31.0 # Bark vereist vaak een recente versie
+accelerate # Optioneel, maar kan helpen met Bark prestaties
+scipy # Nodig voor Bark om WAV op te slaan
+soundfile # Alternatief voor 'wave' module, soms robuuster
+pydub # Voor de optionele XTTS chunk concatenatie
+numpy
+pygame
+elevenlabs
+python-dotenv
+# Zorg ervoor dat je CUDA toolkit hebt geïnstalleerd als je GPU wilt gebruiken
