@@ -110,6 +110,7 @@ def get_elevenlabs_voices(api_key: Optional[str]) -> List[Tuple[str, str]]:
         logger.error(f"Error fetching ElevenLabs voices: {e}", exc_info=True)
         raise RuntimeError(f"Could not fetch ElevenLabs voices: {e}")
 
+
 def get_subscription_info(api_key: Optional[str]) -> Dict[str, Any]:
     """
     Fetches user subscription information (including character counts).
@@ -133,31 +134,27 @@ def get_subscription_info(api_key: Optional[str]) -> Dict[str, Any]:
     logger.info("Fetching ElevenLabs subscription info...")
     try:
         client = ElevenLabs(api_key=api_key)
-        sub_info_obj = client.users.get_subscription()
+        # Fix: Use 'user' (singular) instead of 'users' (plural)
+        sub_info_obj = client.user.get_subscription()
 
-        # Convert the Subscription object to a dictionary for easier processing
-        # Adjust attributes based on the actual object structure returned by the library
+        # Instead of trying to get all attributes automatically,
+        # directly extract just the specific attributes we need
+        # This avoids issues with special attributes like '__signature__'
         info_dict = {
-            attr: getattr(sub_info_obj, attr, None)
-            for attr in dir(sub_info_obj)
-            if not callable(getattr(sub_info_obj, attr)) and not attr.startswith("_")
+            'character_count': getattr(sub_info_obj, 'character_count', 0),
+            'character_limit': getattr(sub_info_obj, 'character_limit', 0),
+            'tier': getattr(sub_info_obj, 'tier', 'unknown'),
+            'status': getattr(sub_info_obj, 'status', 'unknown')
         }
-        # Example explicit mapping (safer if library structure changes):
-        # info_dict = {
-        #     "character_count": getattr(sub_info_obj, 'character_count', 'N/A'),
-        #     "character_limit": getattr(sub_info_obj, 'character_limit', 'N/A'),
-        #     "status": getattr(sub_info_obj, 'status', 'N/A'),
-        #     "tier": getattr(sub_info_obj, 'tier', 'N/A'),
-        #     "next_character_refresh_unix": getattr(sub_info_obj, 'next_character_refresh_unix', None),
-        # }
+
         logger.info("ElevenLabs subscription info successfully fetched.")
         return info_dict
 
     except httpx.HTTPStatusError as http_err:
-        logger.error(f"HTTP Error fetching subscription info ({http_err.response.status_code})", exc_info=True)
+        logger.error(f"HTTP Error fetching subscription info ({http_err.response.status_code})")
         raise RuntimeError(f"Could not fetch subscription info due to HTTP error: {http_err.response.status_code}")
     except Exception as e:
-        logger.error(f"Error fetching subscription info: {e}", exc_info=True)
+        logger.error(f"Error fetching subscription info: {e}")
         raise RuntimeError(f"Could not fetch subscription info: {e}")
 
 def _parse_elevenlabs_error_details(response: httpx.Response) -> str:

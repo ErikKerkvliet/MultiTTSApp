@@ -163,18 +163,9 @@ class TTSApp(tk.Tk):
         # Set the first key as default display if available
         if key_names: self.selected_elevenlabs_key_name.set(key_names[0])
 
-        # Add credits display button to the right of key selector
-        self.check_credits_button = ttk.Button(
-            key_select_frame,
-            text="Check Credits",
-            command=self.check_elevenlabs_credits,
-            state=tk.DISABLED  # Initially disabled until a key is validated
-        )
-        self.check_credits_button.pack(side=tk.LEFT, padx=(0, 5))
-
-        # Credits label to display remaining credits
+        # Credits label to display remaining credits (moved directly next to the dropdown)
         self.credits_label = ttk.Label(key_select_frame, text="Credits: -")
-        self.credits_label.pack(side=tk.LEFT)
+        self.credits_label.pack(side=tk.LEFT, padx=(5, 0))
 
         # --- Manual Key Input Row ---
         key_manual_frame = ttk.Frame(key_frame)
@@ -231,15 +222,10 @@ class TTSApp(tk.Tk):
     def check_elevenlabs_credits(self):
         """Fetches and displays the current credit status for the selected ElevenLabs API key."""
         if not self.current_elevenlabs_key:
-            messagebox.showwarning("API Key Needed",
-                                   "Please select or enter a valid ElevenLabs API key first.",
-                                   parent=self)
+            self.update_status("No valid ElevenLabs API key to check credits.", clear_after=5)
             return
 
         self.update_status("Checking ElevenLabs credits...")
-        # Disable button during check
-        if hasattr(self, 'check_credits_button'):
-            self.check_credits_button.config(state=tk.DISABLED)
 
         # Start a background thread to fetch credit information
         thread = threading.Thread(
@@ -257,24 +243,18 @@ class TTSApp(tk.Tk):
             credits_result = elevenlabs_engine.get_subscription_info(api_key)
         except Exception as e:
             error = e
-            logging.error(f"Error in _get_credits_worker thread: {e}", exc_info=True)
+            # Fix: Remove the exc_info parameter which is causing issues
+            logging.error(f"Error in _get_credits_worker thread: {e}")
 
         # Schedule the UI update back on the main thread
         self.after(0, self._update_elevenlabs_credits_display, credits_result, error)
 
     def _update_elevenlabs_credits_display(self, credits_result, error):
         """Updates the credits display in the main GUI thread."""
-        # Re-enable check credits button
-        if hasattr(self, 'check_credits_button'):
-            new_state = tk.NORMAL if self.current_elevenlabs_key else tk.DISABLED
-            self.check_credits_button.config(state=new_state)
-
         # Handle errors
         if error:
             self.update_status(f"Error fetching credits: {error}", clear_after=10)
-            messagebox.showerror("Error Fetching Credits",
-                                 f"Could not fetch ElevenLabs credits:\n{error}",
-                                 parent=self)
+            logging.error(f"Error fetching credits: {error}")  # Removed exc_info parameter
             if hasattr(self, 'credits_label'):
                 self.credits_label.config(text="Credits: Error")
             return
@@ -300,7 +280,7 @@ class TTSApp(tk.Tk):
 
                 self.update_status("Credits information updated.", clear_after=5)
             except Exception as e:
-                logging.error(f"Error processing credit information: {e}", exc_info=True)
+                logging.error(f"Error processing credit information: {e}")  # Removed exc_info parameter
                 if hasattr(self, 'credits_label'):
                     self.credits_label.config(text="Credits: Parse Error")
         else:
@@ -322,15 +302,17 @@ class TTSApp(tk.Tk):
             if hasattr(self, 'refresh_voices_button'):
                 self.refresh_voices_button.config(state=tk.NORMAL)
 
-            # Enable the check credits button now that we have a valid key
-            if hasattr(self, 'check_credits_button'):
-                self.check_credits_button.config(state=tk.NORMAL)
-
             # Automatically fetch voices after successful validation
             self.refresh_elevenlabs_voices_thread()
 
             # Automatically check credits after successful validation
-            self.check_elevenlabs_credits()
+            # Instead of clicking the button, directly call the worker thread
+            thread = threading.Thread(
+                target=self._get_credits_worker,
+                args=(self.current_elevenlabs_key,),
+                daemon=True
+            )
+            thread.start()
 
             return True
         else:
@@ -340,10 +322,6 @@ class TTSApp(tk.Tk):
             # Disable voice-related controls
             if hasattr(self, 'refresh_voices_button'):
                 self.refresh_voices_button.config(state=tk.DISABLED)
-
-            # Disable credits button
-            if hasattr(self, 'check_credits_button'):
-                self.check_credits_button.config(state=tk.DISABLED)
 
             if hasattr(self, 'credits_label'):
                 self.credits_label.config(text="Credits: -")
@@ -588,7 +566,9 @@ class TTSApp(tk.Tk):
             voices_result = elevenlabs_engine.get_elevenlabs_voices(api_key)
         except Exception as e:
             error = e
-            logging.error(f"Error in _get_voices_worker thread: {e}", exc_info=True)
+            # Fix: Remove the exc_info parameter which is causing issues
+            logging.error(f"Error in _get_voices_worker thread: {e}")
+
         # Schedule the UI update back on the main thread
         self.after(0, self._update_elevenlabs_voice_list, voices_result, error)
 
@@ -605,36 +585,48 @@ class TTSApp(tk.Tk):
             messagebox.showerror("Error Fetching Voices", f"Could not fetch ElevenLabs voices:\n{error}", parent=self)
             # Reset voice list UI elements
             if hasattr(self, 'elevenlabs_voice_dropdown'):
-                 self.elevenlabs_voice_dropdown.config(state=tk.DISABLED, values=[])
-                 self.elevenlabs_voice_name.set("")
+                self.elevenlabs_voice_dropdown.config(state=tk.DISABLED, values=[])
+                self.elevenlabs_voice_name.set("")
             self.elevenlabs_voices.clear()
             return
 
         # Process successful results
         if voices_result is not None:
-            self.elevenlabs_voices.clear() # Clear previous mapping
+            self.elevenlabs_voices.clear()  # Clear previous mapping
             voice_names = []
             for name, voice_id in voices_result:
-                self.elevenlabs_voices[name] = voice_id # Store name -> ID map
+                self.elevenlabs_voices[name] = voice_id  # Store name -> ID map
                 voice_names.append(name)
 
             if hasattr(self, 'elevenlabs_voice_dropdown'):
-                self.elevenlabs_voice_dropdown.config(values=voice_names, state="readonly" if voice_names else "disabled")
+                self.elevenlabs_voice_dropdown.config(values=voice_names,
+                                                      state="readonly" if voice_names else "disabled")
                 if voice_names:
                     # Try to maintain current selection, otherwise use default or first
-                    default_voice = "Rachel" # A common voice
+                    default_voice = "Rachel"  # A common voice
                     current_selection = self.elevenlabs_voice_name.get()
                     if current_selection and current_selection in self.elevenlabs_voices:
-                        self.elevenlabs_voice_name.set(current_selection) # Keep current if valid
+                        self.elevenlabs_voice_name.set(current_selection)  # Keep current if valid
                     elif default_voice in self.elevenlabs_voices:
-                        self.elevenlabs_voice_name.set(default_voice) # Use default
+                        self.elevenlabs_voice_name.set(default_voice)  # Use default
                     else:
-                        self.elevenlabs_voice_name.set(voice_names[0]) # Use first available
+                        self.elevenlabs_voice_name.set(voice_names[0])  # Use first available
                     self.update_status(f"{len(voice_names)} ElevenLabs voices loaded.", clear_after=5)
+
+                    # Also refresh credits when voices are successfully loaded
+                    if self.current_elevenlabs_key:
+                        # Start a background thread to fetch credit information
+                        thread = threading.Thread(
+                            target=self._get_credits_worker,
+                            args=(self.current_elevenlabs_key,),
+                            daemon=True
+                        )
+                        thread.start()
                 else:
                     # No voices found
                     self.elevenlabs_voice_name.set("")
                     self.update_status("No ElevenLabs voices found.", clear_after=5)
+
         else:
             # Should ideally not happen if error is None, but good to handle
             self.update_status("Unknown state after fetching voices.", clear_after=10)
@@ -943,15 +935,17 @@ class TTSApp(tk.Tk):
         """Initializes the TTSApp class, sets up UI and variables."""
         super().__init__()
         self.title("Multi TTS Synthesizer")
-        self.geometry("950x650") # Adjusted size
+        self.geometry("950x650")  # Adjusted size
 
         # --- Initialize Pygame Mixer ---
         try:
-            pygame.init(); pygame.mixer.init(); logging.info("Pygame mixer initialized.")
+            pygame.init();
+            pygame.mixer.init();
+            logging.info("Pygame mixer initialized.")
             self.mixer_initialized = True
         except Exception as e:
             logging.error(f"Could not initialize pygame mixer: {e}", exc_info=True)
-            self.mixer_initialized = False # Continue without playback functionality
+            self.mixer_initialized = False  # Continue without playback functionality
 
         # --- Ensure Output Directory Exists ---
         os.makedirs(DEFAULT_OUTPUT_DIR, exist_ok=True)
@@ -959,18 +953,10 @@ class TTSApp(tk.Tk):
         # --- Initialize Application State Variables ---
         self.model_choice = tk.StringVar(self)
         # XTTS
-        self.xtts_speaker_wav = tk.StringVar(self); self.xtts_language = tk.StringVar(self, value="nl")
-        # Piper
-        self.piper_onnx_path = tk.StringVar(self); self.piper_json_path = tk.StringVar(self)
-        # Bark
-        self.bark_voice_preset = tk.StringVar(self)
-        # ElevenLabs
-        self.model_choice = tk.StringVar(self)
-        # XTTS
-        self.xtts_speaker_wav = tk.StringVar(self)
+        self.xtts_speaker_wav = tk.StringVar(self);
         self.xtts_language = tk.StringVar(self, value="nl")
         # Piper
-        self.piper_onnx_path = tk.StringVar(self)
+        self.piper_onnx_path = tk.StringVar(self);
         self.piper_json_path = tk.StringVar(self)
         # Bark
         self.bark_voice_preset = tk.StringVar(self)
@@ -983,7 +969,13 @@ class TTSApp(tk.Tk):
         self.elevenlabs_model_id = tk.StringVar(self)
         self.elevenlabs_voices = {}  # {Name: ID} map
         # General / Playback
-        self.output_file_path = tk.StringVar(self); self.audio_files = {}; self.selected_audio_path = None; self.audio_duration = 0.0; self.playback_update_id = None; self.is_paused = False; self.is_seeking = False
+        self.output_file_path = tk.StringVar(self);
+        self.audio_files = {};
+        self.selected_audio_path = None;
+        self.audio_duration = 0.0;
+        self.playback_update_id = None;
+        self.is_paused = False;
+        self.is_seeking = False
 
         # --- Read API Keys from .env ---
         key_prefix = "ELEVENLABS_API_KEY_"
