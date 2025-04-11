@@ -1,0 +1,2060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi TTS Synthesizer</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Fonts (Optional - Example: Poppins) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Base Styles & Theme --- */
+        :root {
+            --bs-primary-rgb: 71, 124, 255; /* Example: Slightly softer blue */
+            --bs-body-bg: #f8f9fa; /* Light grey background */
+            --card-bg: #ffffff;
+            --card-border-color: #dee2e6;
+            --card-header-bg: #f1f3f5;
+            --text-muted-light: #868e96;
+            --hover-bg: #e9ecef;
+            --selected-bg: #dde2e6;
+            --recording-bg: #fff0f0; /* Light red for recording indicator */
+            --recording-text: #dc3545;
+            --box-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+            background-color: var(--bs-body-bg);
+            font-family: 'Poppins', sans-serif; /* Optional: Use a custom font */
+            color: #343a40;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+             font-weight: 600; /* Slightly bolder headings */
+        }
+
+        .container {
+            max-width: 1200px; /* Limit max width for larger screens */
+        }
+
+        /* --- Card Styling --- */
+        .card {
+            border: none; /* Remove default border */
+            border-radius: 0.5rem; /* Softer corners */
+            box-shadow: var(--box-shadow-sm);
+            background-color: var(--card-bg);
+            margin-bottom: 1.75rem !important; /* Consistent spacing */
+            overflow: hidden; /* Ensure content respects border-radius */
+        }
+
+        .card-header {
+            background-color: var(--card-header-bg);
+            border-bottom: 1px solid var(--card-border-color);
+            padding: 0.8rem 1.25rem;
+            font-weight: 500; /* Slightly bolder header text */
+        }
+        .card-header h5 {
+            margin-bottom: 0;
+            font-size: 1.1rem; /* Slightly larger header text */
+            color: #495057;
+        }
+
+        .card-body {
+            padding: 1.25rem;
+        }
+        .card-body.p-0 {
+            padding: 0 !important; /* Respect p-0 when needed */
+        }
+
+
+        /* --- Audio List --- */
+        #audio-list {
+            max-height: 300px; /* Ensure scrollbar appears */
+            overflow-y: auto;
+        }
+
+        .audio-item {
+            cursor: pointer;
+            padding: 0.8rem 1.25rem;
+            border-bottom: 1px solid var(--card-border-color);
+            transition: background-color 0.15s ease-in-out;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .audio-item:last-child {
+             border-bottom: none;
+        }
+
+        .audio-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .audio-item.selected {
+            background-color: var(--selected-bg);
+            font-weight: 500;
+        }
+        .audio-item .audio-info {
+            flex-grow: 1;
+            margin-right: 1rem; /* Space before delete button */
+            overflow: hidden; /* Prevent long names from breaking layout */
+        }
+         .audio-item .audio-filename {
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 0.95rem;
+            color: #343a40;
+        }
+        .audio-item .audio-meta {
+             font-size: 0.8rem;
+             color: var(--text-muted-light);
+             margin-top: 0.1rem;
+        }
+
+        .audio-item .btn-outline-danger {
+            border-color: transparent; /* Make button less intrusive */
+            color: var(--text-muted-light);
+            padding: 0.2rem 0.5rem;
+        }
+         .audio-item .btn-outline-danger:hover {
+             background-color: var(--bs-danger-bg-subtle);
+             color: var(--bs-danger-text-emphasis);
+         }
+         .audio-list-empty {
+             padding: 1.5rem;
+             text-align: center;
+             color: var(--text-muted-light);
+             font-style: italic;
+         }
+
+        /* --- Audio Player --- */
+        #audio-player-container .d-flex span {
+            font-size: 0.85rem;
+            color: var(--text-muted-light);
+            min-width: 40px; /* Ensure space for time */
+            text-align: center;
+        }
+        #audio-player-container .form-range {
+            padding: 0; /* Remove default range padding */
+            margin: 0.8rem 0;
+        }
+        .seek-slider {
+            --slider-track-bg: #dee2e6;
+            --slider-thumb-bg: var(--bs-primary);
+            --slider-thumb-border: var(--bs-primary);
+            --slider-progress-bg: var(--bs-primary);
+            --slider-height: 6px;
+            --slider-thumb-size: 16px;
+
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: var(--slider-height);
+            background: var(--slider-track-bg);
+            outline: none;
+            border-radius: calc(var(--slider-height) / 2);
+            cursor: pointer;
+            position: relative; /* Needed for progress */
+        }
+
+        .seek-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: var(--slider-thumb-size);
+            height: var(--slider-thumb-size);
+            background: var(--slider-thumb-bg);
+            border: 1px solid var(--slider-thumb-border);
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: calc((var(--slider-thumb-size) - var(--slider-height)) / -2); /* Center thumb */
+        }
+
+        .seek-slider::-moz-range-thumb {
+            width: var(--slider-thumb-size);
+            height: var(--slider-thumb-size);
+            background: var(--slider-thumb-bg);
+            border: 1px solid var(--slider-thumb-border);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        #playback-buttons {
+             justify-content: space-around !important; /* Evenly space buttons */
+             margin-top: 0.8rem;
+        }
+         #playback-buttons .btn {
+             padding: 0.5rem 1rem;
+         }
+
+        /* --- Forms --- */
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 0.3rem; /* Slightly less space below label */
+            font-size: 0.9rem;
+        }
+        .form-control, .form-select {
+            border-radius: 0.375rem; /* Consistent radius */
+            border: 1px solid #ced4da;
+        }
+        .form-control:focus, .form-select:focus {
+             border-color: #86b7fe; /* Bootstrap's focus color */
+             box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+        }
+        textarea#text-input {
+             min-height: 150px; /* Slightly larger text area */
+        }
+        .input-group .btn {
+            z-index: 2; /* Ensure button overlaps focus shadow slightly */
+        }
+        .form-text {
+            font-size: 0.85rem;
+        }
+        #key-status { font-weight: 500; }
+        #key-status.text-success { color: var(--bs-success) !important; }
+        #key-status.text-danger { color: var(--bs-danger) !important; }
+        #key-status.text-warning { color: var(--bs-warning) !important; }
+        #key-status.text-info { color: var(--bs-info) !important; }
+
+        /* --- Speaker Recording Styles --- */
+        #recording-controls { margin-top: 0.75rem; }
+        #recording-status {
+            font-weight: 500;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        #recording-status.recording { color: var(--recording-text); }
+        #recording-status.available { color: var(--bs-success); }
+        #recording-preview { margin-top: 0.5rem; }
+        .speaker-source-active {
+            border: 2px solid var(--bs-primary);
+            padding: 5px;
+            border-radius: 5px;
+            background-color: rgba(var(--bs-primary-rgb), 0.1);
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            border-radius: 0.375rem;
+            font-weight: 500;
+            padding: 0.5rem 1rem; /* Standard button padding */
+        }
+        .btn-lg {
+            padding: 0.75rem 1.5rem;
+            font-size: 1.1rem;
+        }
+         .btn i {
+             margin-right: 0.4rem;
+             vertical-align: text-bottom; /* Better icon alignment */
+         }
+         #synthesize-btn {
+             width: 100%; /* Make main button full width */
+         }
+         .refresh-btn { /* Class for refresh buttons */
+             padding: 0.25rem 0.5rem;
+             font-size: 0.8rem;
+             margin-left: 0.5rem;
+             vertical-align: middle;
+         }
+
+        /* --- Status & Progress --- */
+        #status-message {
+            text-align: center;
+            margin-top: 1rem;
+            font-weight: 500;
+            color: var(--text-muted-light);
+        }
+        #progress-overlay {
+            position: fixed; /* Use fixed to cover viewport */
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(33, 37, 41, 0.7); /* Darker overlay */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1056; /* Above modals */
+            display: none; /* Initially hidden */
+        }
+        #progress-overlay .card {
+            width: 90%;
+            max-width: 450px; /* Limit width on large screens */
+            box-shadow: var(--box-shadow); /* More prominent shadow */
+        }
+         #progress-overlay .card-header {
+             background-color: var(--bs-primary);
+             color: white;
+             border-bottom: none;
+         }
+         #progress-overlay .progress {
+             height: 1rem; /* Thicker progress bar */
+         }
+         #progress-overlay #progress-time {
+             color: var(--text-muted-light);
+         }
+
+        /* --- Modal --- */
+        .modal-header {
+            background-color: var(--card-header-bg);
+            border-bottom: 1px solid var(--card-border-color);
+        }
+        .modal-footer {
+             background-color: var(--card-header-bg);
+             border-top: 1px solid var(--card-border-color);
+        }
+
+        /* --- Responsive Adjustments --- */
+         @media (max-width: 767.98px) {
+            body {
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+            }
+            h1 {
+                font-size: 1.75rem; /* Smaller title on mobile */
+            }
+             .col-md-4, .col-md-8 {
+                 margin-bottom: 1rem; /* Add space between columns when stacked */
+             }
+            #recording-controls .btn {
+                 margin-bottom: 0.5rem; /* Stack recording buttons better */
+            }
+         }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="text-center mb-5">
+            <h1><i class="bi bi-broadcast me-2"></i>Multi TTS Synthesizer</h1>
+        </header>
+
+        <main class="row">
+            <!-- Left Panel: Audio List & Playback -->
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-music-note-list me-2"></i>Generated Audio</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="audio-list">
+                            {% if audio_files %}
+                                {% for file in audio_files %}
+                                <div class="audio-item" data-filename="{{ file.filename }}" data-path="{{ url_for('serve_audio', filename=file.filename) }}">
+                                    <div class="audio-info">
+                                        <span class="audio-filename" title="{{ file.filename }}">
+                                            <i class="bi bi-file-earmark-music me-2 text-secondary"></i>
+                                            {{ file.filename }}
+                                        </span>
+                                        <div class="audio-meta">
+                                            {{ file.size_mb }} MB
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger delete-audio" data-filename="{{ file.filename }}" title="Delete {{ file.filename }}">
+                                        <i class="bi bi-trash m-0"></i> <!-- Remove margin from icon -->
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="audio-list-empty">
+                                    No audio files generated yet.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-play-circle me-2"></i>Playback Controls</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="audio-player-container">
+                            <div class="d-flex justify-content-between align-items-center px-1">
+                                <span id="current-time">00:00</span>
+                                <span id="duration">00:00</span>
+                            </div>
+                            <input type="range" class="form-range seek-slider" id="seek-slider" min="0" max="100" value="0" disabled>
+                            <div id="playback-buttons" class="d-flex justify-content-between mt-2">
+                                <button id="play-btn" class="btn btn-primary" disabled>
+                                    <i class="bi bi-play-fill"></i> Play
+                                </button>
+                                <button id="pause-btn" class="btn btn-secondary" disabled>
+                                    <i class="bi bi-pause-fill"></i> Pause
+                                </button>
+                                <button id="stop-btn" class="btn btn-danger" disabled>
+                                    <i class="bi bi-stop-fill"></i> Stop
+                                </button>
+                            </div>
+                            <audio id="audio-player" style="display: none;"></audio>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Configuration and Synthesis -->
+            <div class="col-md-8">
+                <!-- Text Input -->
+                 <div class="card mb-4">
+                     <div class="card-header">
+                         <h5 class="mb-0"><i class="bi bi-textarea-t me-2"></i>Text to Synthesize</h5>
+                     </div>
+                     <div class="card-body">
+                         <textarea id="text-input" class="form-control" rows="6" placeholder="Enter the text you want to convert to speech..."></textarea>
+                     </div>
+                 </div>
+
+                <!-- Model Selection & Parameters -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>TTS Engine & Parameters</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Model Selection Row -->
+                         <div class="row mb-4 align-items-center">
+                             <div class="col-md-3">
+                                 <label for="model-select" class="form-label mb-0">Engine:</label>
+                             </div>
+                             <div class="col-md-9">
+                                 <select id="model-select" class="form-select form-select-lg">
+                                     <option value="XTTSv2" selected>XTTSv2</option>
+                                     <option value="Piper">Piper</option>
+                                     <option value="Bark">Bark</option>
+                                     <option value="ElevenLabs">ElevenLabs</option>
+                                 </select>
+                             </div>
+                         </div>
+
+                         <hr class="my-4"> <!-- Separator -->
+
+                        <!-- Dynamic Parameter Sections -->
+                         <h6 id="params-title" class="mb-3 text-primary">XTTSv2 Parameters</h6>
+
+                        <!-- XTTSv2 Parameters -->
+                        <div id="xtts-params">
+                            <div class="mb-3 row">
+                                <label class="col-sm-3 col-form-label pt-0">Speaker Ref:</label>
+                                <div class="col-sm-9">
+                                    <!-- Speaker Sample Selection -->
+                                    <div id="speaker-sample-wrapper" class="mb-2">
+                                        <label for="speaker-sample-select" class="form-label small">Use Existing Sample:</label>
+                                        <select id="speaker-sample-select" class="form-select form-select-sm">
+                                            <option value="">-- Select sample --</option>
+                                            {% for sample in speaker_samples %} {# <--- Populated by Flask #}
+                                            <option value="{{ sample }}">{{ sample }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <!-- Speaker File Upload -->
+                                    <div id="speaker-upload-wrapper" class="mb-2">
+                                         <label for="speaker-wav-upload" class="form-label small">Upload WAV File:</label>
+                                         <div class="input-group input-group-sm">
+                                            <input type="file" id="speaker-wav-upload" class="form-control" accept=".wav">
+                                        </div>
+                                    </div>
+
+                                     <!-- Speaker Recording -->
+                                     <div id="speaker-recording-wrapper" class="border rounded p-2 mt-3">
+                                         <label class="form-label small d-block mb-2">Record Speaker Audio:</label>
+                                         <div id="recording-controls" class="d-flex flex-wrap gap-2">
+                                             <button id="record-btn" class="btn btn-sm btn-danger">
+                                                 <i class="bi bi-mic-fill"></i> Record
+                                             </button>
+                                             <button id="stop-record-btn" class="btn btn-sm btn-secondary" disabled>
+                                                 <i class="bi bi-stop-fill"></i> Stop
+                                             </button>
+                                             <button id="use-record-btn" class="btn btn-sm btn-success" disabled>
+                                                 <i class="bi bi-check-lg"></i> Use Recording
+                                             </button>
+                                             <button id="discard-record-btn" class="btn btn-sm btn-warning" disabled>
+                                                  <i class="bi bi-trash"></i> Discard
+                                             </button>
+                                         </div>
+                                         <div id="recording-status" class="mt-2 small">Status: Idle</div>
+                                         <audio id="recording-preview" controls class="mt-2 w-100" style="display: none; height: 40px;"></audio>
+                                         <small class="form-text text-muted d-block mt-1">Record a short, clear sample (5-15s recommended).</small>
+                                     </div>
+
+                                    <button id="clear-speaker" class="btn btn-sm btn-outline-secondary mt-3" type="button" title="Clear speaker selection/upload/recording">
+                                        <i class="bi bi-x-lg"></i> Clear All Speaker Refs
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mb-3 row align-items-center">
+                                <label for="xtts-language" class="col-sm-3 col-form-label">Language:</label>
+                                <div class="col-sm-9">
+                                    <select id="xtts-language" class="form-select">
+                                        <option value="en" selected>English (en)</option>
+                                        <option value="es">Spanish (es)</option>
+                                        <option value="fr">French (fr)</option>
+                                        <option value="de">German (de)</option>
+                                        <option value="it">Italian (it)</option>
+                                        <option value="pt">Portuguese (pt)</option>
+                                        <option value="pl">Polish (pl)</option>
+                                        <option value="tr">Turkish (tr)</option>
+                                        <option value="ru">Russian (ru)</option>
+                                        <option value="nl">Dutch (nl)</option>
+                                        <option value="zh-cn">Chinese (zh-cn)</option>
+                                        <option value="ja">Japanese (ja)</option>
+                                        <option value="ko">Korean (ko)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Piper Parameters -->
+                        <div id="piper-params" style="display: none;">
+                            <div class="mb-3 row align-items-center">
+                                <label class="col-sm-3 col-form-label">Model:</label>
+                                <div class="col-sm-9">
+                                    <select id="piper-model-select" class="form-select">
+                                        <option value="">-- Select a Piper voice model --</option>
+                                        {% for model in piper_models %}
+                                        <option value="{{ model.name }}"
+                                                data-onnx="{{ model.onnx_path }}"
+                                                data-json="{{ model.json_path }}">
+                                            {{ model.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        Select a model from the `models/piper` directory.
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="mb-3 row">
+                                <label class="col-sm-3 col-form-label">Model Files:</label>
+                                <div class="col-sm-9">
+                                    <input type="text" id="piper-onnx-path" class="form-control form-control-sm mb-1"
+                                           placeholder="ONNX file path" readonly>
+                                    <input type="text" id="piper-json-path" class="form-control form-control-sm"
+                                           placeholder="JSON config path" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bark Parameters -->
+                        <div id="bark-params" style="display: none;">
+                            <div class="mb-3 row align-items-center">
+                                <label for="bark-voice-preset" class="col-sm-3 col-form-label">Voice Preset:</label>
+                                <div class="col-sm-9">
+                                    <select id="bark-voice-preset" class="form-select">
+                                        {% for voice in bark_voices %}
+                                        <option value="{{ voice }}">{{ voice }}</option>
+                                        {% endfor %}
+                                    </select>
+                                     <small class="form-text text-muted">Affects speaker, prosody, tone.</small>
+                                </div>
+                            </div>
+                            <div class="mb-3 row align-items-center">
+                                <label for="bark-model-name" class="col-sm-3 col-form-label">Quality:</label>
+                                <div class="col-sm-9">
+                                    <select id="bark-model-name" class="form-select">
+                                        <option value="suno/bark-small" selected>Small (Faster)</option>
+                                        <option value="suno/bark">Full (Better Quality)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ElevenLabs Parameters -->
+                        <div id="elevenlabs-params" style="display: none;">
+                            <div class="mb-3 row">
+                                <label class="col-sm-3 col-form-label pt-0">API Key:</label>
+                                <div class="col-sm-9">
+                                    <select id="elevenlabs-key-select" class="form-select mb-2">
+                                        <option value="">-- Select stored key --</option>
+                                        {# --- This loop should now work if elevenlabs_keys is passed correctly --- #}
+                                        {% for key_name in elevenlabs_keys %}
+                                        <option value="{{ key_name }}">{{ key_name }}</option>
+                                        {% endfor %}
+                                        {# --- End ElevenLabs Key Loop --- #}
+                                    </select>
+                                    <div class="input-group mb-1">
+                                        <input type="password" id="elevenlabs-api-key" class="form-control"
+                                               placeholder="Or enter API key manually">
+                                        <button id="validate-key-btn" class="btn btn-outline-primary" type="button">
+                                            Validate
+                                        </button>
+                                    </div>
+                                    <div class="form-group row">
+                                    <div class="col-sm-8 offset-sm-4">
+                                        <div id="elevenlabs_status" class="text-muted small">Select a key or enter one manually.</div>
+                                    </div>
+                                </div>
+                                    <small class="form-text">
+                                        Status: <span id="key-status" class="text-muted">Not validated</span>
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="mb-3 row align-items-center">
+                                <label class="col-sm-3 col-form-label">Subscription:</label>
+                                <div class="col-sm-9">
+                                    <div class="d-flex align-items-center">
+                                        <span id="elevenlabs-credits" class="form-control-plaintext pe-2 small">
+                                            Validate key to check credits.
+                                        </span>
+                                        <button id="refresh-credits-btn" class="btn btn-sm btn-outline-secondary refresh-btn" disabled title="Refresh Credits">
+                                            <i class="bi bi-arrow-clockwise m-0"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3 row align-items-center">
+                                <label for="elevenlabs-voice" class="col-sm-3 col-form-label">Voice:</label>
+                                <div class="col-sm-9">
+                                    <div class="input-group">
+                                        <select id="elevenlabs-voice" class="form-select" disabled>
+                                            <option value="">-- Validate API key first --</option>
+                                        </select>
+                                        <button id="refresh-voices-btn" class="btn btn-outline-secondary refresh-btn" disabled title="Refresh Voices">
+                                            <i class="bi bi-arrow-clockwise m-0"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3 row align-items-center">
+                                <label for="elevenlabs-model" class="col-sm-3 col-form-label">Model:</label>
+                                <div class="col-sm-9">
+                                    <select id="elevenlabs-model" class="form-select">
+                                        {% for model in elevenlabs_models %}
+                                        <option value="{{ model }}">{{ model }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- End Card Body -->
+                </div> <!-- End Model Selection & Params Card -->
+
+
+                <!-- Synthesis Button and Status -->
+                 <div class="card mb-4 shadow-sm"> <!-- Slight shadow emphasis -->
+                    <div class="card-body text-center">
+                        <button id="synthesize-btn" class="btn btn-primary btn-lg mb-3">
+                            <i class="bi bi-soundwave"></i> Start Synthesis
+                        </button>
+                        <div id="status-message" class="text-muted small">Ready. Select engine and enter text.</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div> <!-- End Container -->
+
+    <!-- Progress Overlay -->
+    <div id="progress-overlay">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-gear-wide-connected"></i> Synthesis in Progress</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <p id="progress-message" class="fw-bold mb-2">Initializing synthesis...</p>
+                <div class="progress mb-3" style="height: 10px;">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar" style="width: 100%"></div>
+                </div>
+                <p class="small text-muted mb-0" id="progress-time">Time elapsed: 0s</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div class="modal fade" id="result-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"> <!-- Centered Modal -->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="result-title"><i class="bi bi-check-circle-fill me-2 text-success"></i>Synthesis Complete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="result-message"></p>
+                    <div id="result-player-container" style="display: none;">
+                        <audio id="result-player" controls class="w-100"></audio>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap & JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const elevenlabsSection = document.getElementById('elevenlabs_params'); // Assuming the EL section has this ID
+        if (!elevenlabsSection) return; // Exit if EL section not found
+
+        const keySelect = document.getElementById('elevenlabs_key_select');
+        const keyManualInput = document.getElementById('elevenlabs_api_key_manual');
+        const voiceSelect = document.getElementById('elevenlabs_voice_id');
+        const refreshButton = document.getElementById('refresh_elevenlabs_voices');
+        const creditsButton = document.getElementById('check_elevenlabs_credits');
+        const creditsSpan = document.getElementById('elevenlabs_credits');
+        const statusDiv = document.getElementById('elevenlabs_status'); // Add a div for status messages
+
+        let activeKeyInfo = { // Store the *source* of the currently active key
+            name: null,
+            manual: null,
+            isValid: false
+        };
+
+        function updateUIForKeyState() {
+            const hasValidKey = activeKeyInfo.isValid;
+            refreshButton.disabled = !hasValidKey;
+            creditsButton.disabled = !hasValidKey;
+            voiceSelect.disabled = !hasValidKey;
+
+            if (!hasValidKey) {
+                voiceSelect.innerHTML = '<option value="">-- Select Valid Key First --</option>';
+                creditsSpan.textContent = 'Credits: -';
+            }
+        }
+
+        async function validateAndProcessKey(keyName = null, manualKey = null) {
+            statusDiv.textContent = 'Validating key...';
+            statusDiv.className = 'text-info small';
+            activeKeyInfo.isValid = false; // Assume invalid until proven otherwise
+            activeKeyInfo.name = keyName;
+            activeKeyInfo.manual = manualKey;
+            updateUIForKeyState(); // Disable buttons while validating
+
+            const payload = {};
+            if (keyName) {
+                payload.api_key_name = keyName;
+            } else if (manualKey) {
+                payload.api_key = manualKey; // Backend expects 'api_key' for manual in JSON
+            } else {
+                 statusDiv.textContent = 'No key selected or entered.';
+                 statusDiv.className = 'text-warning small';
+                 return; // Nothing to validate
+            }
+
+            try {
+                const response = await fetch('/api/elevenlabs/validate_key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    activeKeyInfo.isValid = true;
+                    statusDiv.textContent = 'Key is valid. Fetching voices...';
+                    statusDiv.className = 'text-success small';
+                    updateUIForKeyState(); // Enable buttons
+                    fetchVoices(); // Automatically fetch voices on valid key
+                    fetchCredits(); // And credits
+                } else {
+                    activeKeyInfo.isValid = false;
+                    statusDiv.textContent = `Validation failed: ${result.message || 'Unknown error'}`;
+                    statusDiv.className = 'text-danger small';
+                    updateUIForKeyState(); // Keep buttons disabled
+                }
+            } catch (error) {
+                activeKeyInfo.isValid = false;
+                statusDiv.textContent = `Error during validation: ${error}`;
+                statusDiv.className = 'text-danger small';
+                updateUIForKeyState();
+            }
+        }
+
+       async function fetchVoices() {
+            if (!activeKeyInfo.isValid) return;
+            statusDiv.textContent = 'Fetching voices...';
+            refreshButton.disabled = true; // Disable while fetching
+
+            const payload = {};
+             if (activeKeyInfo.name) {
+                 payload.api_key_name = activeKeyInfo.name;
+             } else if (activeKeyInfo.manual) {
+                 payload.api_key = activeKeyInfo.manual;
+             } else { return; } // Should not happen if isValid is true
+
+            try {
+                 const response = await fetch('/api/elevenlabs/voices', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify(payload)
+                 });
+                 const result = await response.json();
+
+                 if (response.ok && result.success) {
+                     voiceSelect.innerHTML = ''; // Clear existing options
+                     if (result.voices && result.voices.length > 0) {
+                         result.voices.forEach(voice => {
+                             const option = document.createElement('option');
+                             option.value = voice.id;
+                             option.textContent = voice.name;
+                             voiceSelect.appendChild(option);
+                         });
+                         statusDiv.textContent = `Loaded ${result.voices.length} voices.`;
+                         statusDiv.className = 'text-success small';
+                     } else {
+                         voiceSelect.innerHTML = '<option value="">-- No voices found --</option>';
+                         statusDiv.textContent = 'Valid key, but no voices found.';
+                         statusDiv.className = 'text-warning small';
+                     }
+                 } else {
+                      statusDiv.textContent = `Failed to fetch voices: ${result.message || 'Unknown error'}`;
+                      statusDiv.className = 'text-danger small';
+                 }
+            } catch (error) {
+                  statusDiv.textContent = `Error fetching voices: ${error}`;
+                  statusDiv.className = 'text-danger small';
+            } finally {
+                 refreshButton.disabled = !activeKeyInfo.isValid; // Re-enable based on key state
+            }
+        }
+
+        async function fetchCredits() {
+             if (!activeKeyInfo.isValid) return;
+             statusDiv.textContent = 'Fetching credits...';
+             creditsButton.disabled = true; // Disable while fetching
+             creditsSpan.textContent = 'Credits: Checking...';
+
+             const payload = {};
+              if (activeKeyInfo.name) {
+                  payload.api_key_name = activeKeyInfo.name;
+              } else if (activeKeyInfo.manual) {
+                  payload.api_key = activeKeyInfo.manual;
+              } else { return; }
+
+             try {
+                  const response = await fetch('/api/elevenlabs/subscription', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload)
+                  });
+                  const result = await response.json();
+
+                  if (response.ok && result.success && result.subscription) {
+                      const sub = result.subscription;
+                      const count = sub.character_count || 0;
+                      const limit = sub.character_limit || 0;
+                      const remaining = limit - count;
+                      const percentage = limit > 0 ? (remaining / limit * 100) : 0;
+                      creditsSpan.textContent = `Credits: ${remaining.toLocaleString()}/${limit.toLocaleString()} (${percentage.toFixed(1)}%)`;
+                       statusDiv.textContent = 'Credits updated.';
+                       statusDiv.className = 'text-success small';
+                  } else {
+                       creditsSpan.textContent = 'Credits: Error';
+                       statusDiv.textContent = `Failed to fetch credits: ${result.message || 'Unknown error'}`;
+                       statusDiv.className = 'text-danger small';
+                  }
+             } catch (error) {
+                   creditsSpan.textContent = 'Credits: Error';
+                   statusDiv.textContent = `Error fetching credits: ${error}`;
+                   statusDiv.className = 'text-danger small';
+             } finally {
+                  creditsButton.disabled = !activeKeyInfo.isValid; // Re-enable based on key state
+             }
+         }
+
+        // --- Event Listeners ---
+        if (keySelect) {
+            keySelect.addEventListener('change', function() {
+                const selectedName = this.value;
+                if (selectedName) {
+                    keyManualInput.value = ''; // Clear manual input
+                    validateAndProcessKey(selectedName, null);
+                } else {
+                     // "-- Select Stored Key --" chosen
+                     activeKeyInfo.isValid = false;
+                     activeKeyInfo.name = null;
+                     activeKeyInfo.manual = null;
+                     updateUIForKeyState();
+                     statusDiv.textContent = 'Select a key or enter one manually.';
+                     statusDiv.className = 'text-muted small';
+                }
+            });
+        }
+
+        if (keyManualInput) {
+            // Validate when the user tabs out or presses Enter
+            keyManualInput.addEventListener('blur', function() {
+                 const manualKey = this.value.trim();
+                 if(manualKey && manualKey !== activeKeyInfo.manual) { // Only validate if changed and not empty
+                     if(keySelect) keySelect.value = ''; // Deselect stored key
+                     validateAndProcessKey(null, manualKey);
+                 } else if (!manualKey && !keySelect.value) {
+                    // Cleared manual input and no dropdown selected
+                     activeKeyInfo.isValid = false;
+                     activeKeyInfo.name = null;
+                     activeKeyInfo.manual = null;
+                     updateUIForKeyState();
+                     statusDiv.textContent = 'Select a key or enter one manually.';
+                     statusDiv.className = 'text-muted small';
+                 }
+            });
+             keyManualInput.addEventListener('keypress', function(e) {
+                 if (e.key === 'Enter') {
+                     this.blur(); // Trigger the blur event validation
+                 }
+             });
+        }
+
+        if (refreshButton) {
+            refreshButton.addEventListener('click', fetchVoices);
+        }
+        if (creditsButton) {
+             creditsButton.addEventListener('click', fetchCredits);
+         }
+
+        // Initial state
+        updateUIForKeyState();
+
+    }); // End DOMContentLoaded
+</script>
+    <script>
+        // --- DOM Elements ---
+        const modelSelect = document.getElementById('model-select');
+        const textInput = document.getElementById('text-input');
+        const synthesizeBtn = document.getElementById('synthesize-btn');
+        const statusMessage = document.getElementById('status-message');
+        const progressOverlay = document.getElementById('progress-overlay');
+        const progressMessage = document.getElementById('progress-message');
+        const progressTimeElement = document.getElementById('progress-time');
+        const audioList = document.getElementById('audio-list');
+
+        // Audio player elements
+        const audioPlayer = document.getElementById('audio-player');
+        const playBtn = document.getElementById('play-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const seekSlider = document.getElementById('seek-slider');
+        const currentTimeElement = document.getElementById('current-time');
+        const durationElement = document.getElementById('duration');
+
+        // Result modal elements
+        const resultModalElement = document.getElementById('result-modal');
+        const resultModal = new bootstrap.Modal(resultModalElement);
+        const resultTitle = document.getElementById('result-title');
+        const resultMessage = document.getElementById('result-message');
+        const resultPlayer = document.getElementById('result-player');
+        const resultPlayerContainer = document.getElementById('result-player-container');
+
+        // Model-specific parameter elements
+        const paramsTitle = document.getElementById('params-title');
+        const xttsParams = document.getElementById('xtts-params');
+        const piperParams = document.getElementById('piper-params');
+        const barkParams = document.getElementById('bark-params');
+        const elevenlabsParams = document.getElementById('elevenlabs-params');
+
+        // XTTSv2 elements
+        const speakerWavUpload = document.getElementById('speaker-wav-upload');
+        const speakerSampleSelect = document.getElementById('speaker-sample-select');
+        const clearSpeakerBtn = document.getElementById('clear-speaker');
+        const xttsLanguage = document.getElementById('xtts-language');
+        // --- XTTS Recording Elements ---
+        const recordBtn = document.getElementById('record-btn');
+        const stopRecordBtn = document.getElementById('stop-record-btn');
+        const useRecordBtn = document.getElementById('use-record-btn');
+        const discardRecordBtn = document.getElementById('discard-record-btn');
+        const recordingStatus = document.getElementById('recording-status');
+        const recordingPreview = document.getElementById('recording-preview');
+        const speakerSampleWrapper = document.getElementById('speaker-sample-wrapper');
+        const speakerUploadWrapper = document.getElementById('speaker-upload-wrapper');
+        const speakerRecordingWrapper = document.getElementById('speaker-recording-wrapper');
+
+
+        // Piper elements
+        const piperModelSelect = document.getElementById('piper-model-select');
+        const piperOnnxPath = document.getElementById('piper-onnx-path');
+        const piperJsonPath = document.getElementById('piper-json-path');
+
+        // Bark elements
+        const barkVoicePreset = document.getElementById('bark-voice-preset');
+        const barkModelName = document.getElementById('bark-model-name');
+
+        // ElevenLabs elements
+        const elevenlabsKeySelect = document.getElementById('elevenlabs-key-select');
+        const elevenlabsApiKey = document.getElementById('elevenlabs-api-key');
+        const validateKeyBtn = document.getElementById('validate-key-btn');
+        const keyStatus = document.getElementById('key-status');
+        const elevenlabsCredits = document.getElementById('elevenlabs-credits');
+        const refreshCreditsBtn = document.getElementById('refresh-credits-btn');
+        const elevenlabsVoice = document.getElementById('elevenlabs-voice');
+        const refreshVoicesBtn = document.getElementById('refresh-voices-btn');
+        const elevenlabsModel = document.getElementById('elevenlabs-model');
+
+        // --- Global Variables ---
+        let selectedAudioItem = null;
+        let isPlaying = false;
+        let validatedApiKey = null; // Store the manually entered key if validated
+        let synthesisStartTime = 0;
+        let progressInterval = null;
+        // --- Recording Variables ---
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordedSpeakerBlob = null; // Stores the final Blob if recording is 'used'
+        let audioStream = null;
+
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            updateParameterUI(); // Set initial state based on default model
+            refreshAudioList(); // Load initial audio list
+            resetRecordingState(); // Initial state for recorder
+        });
+
+        // --- Event Listeners Setup ---
+        function setupEventListeners() {
+            modelSelect.addEventListener('change', updateParameterUI);
+            synthesizeBtn.addEventListener('click', startSynthesis);
+
+            // Audio Playback
+            playBtn.addEventListener('click', playAudio);
+            pauseBtn.addEventListener('click', pauseAudio);
+            stopBtn.addEventListener('click', stopAudio);
+            seekSlider.addEventListener('input', seekAudio); // Update while sliding
+            seekSlider.addEventListener('change', seekAudio); // Final update after release
+            audioPlayer.addEventListener('timeupdate', updatePlaybackTime);
+            audioPlayer.addEventListener('loadedmetadata', updateDuration);
+            audioPlayer.addEventListener('ended', handlePlaybackEnd);
+            audioPlayer.addEventListener('error', handleAudioError);
+
+            // ElevenLabs Controls
+            validateKeyBtn.addEventListener('click', validateElevenLabsKey);
+            elevenlabsKeySelect.addEventListener('change', handleKeySelection);
+            refreshVoicesBtn.addEventListener('click', () => fetchElevenLabsVoices(elevenlabsKeySelect.value || null));
+            refreshCreditsBtn.addEventListener('click', () => fetchElevenLabsCredits(elevenlabsKeySelect.value || null));
+
+            // XTTS Controls
+            speakerWavUpload.addEventListener('change', handleSpeakerUpload);
+            speakerSampleSelect.addEventListener('change', handleSpeakerSampleSelection);
+            clearSpeakerBtn.addEventListener('click', clearSpeakerSelection);
+            // -- Recording Listeners --
+            recordBtn.addEventListener('click', startRecording);
+            stopRecordBtn.addEventListener('click', stopRecording);
+            useRecordBtn.addEventListener('click', useRecording);
+            discardRecordBtn.addEventListener('click', discardRecording);
+
+
+            // Piper Controls
+            piperModelSelect.addEventListener('change', updatePiperModelPaths);
+
+            // Use event delegation for dynamically added audio list items
+            audioList.addEventListener('click', handleAudioListClick);
+
+            // Reset modal on close
+            resultModalElement.addEventListener('hidden.bs.modal', () => {
+                 resultPlayer.pause();
+                 resultPlayer.src = '';
+            });
+        }
+
+
+        // --- UI Update Functions ---
+
+         function updateParameterUI() {
+            const selectedModel = modelSelect.value;
+            const modelNameMap = {
+                'XTTSv2': 'XTTSv2',
+                'Piper': 'Piper',
+                'Bark': 'Bark',
+                'ElevenLabs': 'ElevenLabs'
+            };
+            // Ensure paramsTitle exists before setting textContent
+            if (paramsTitle) {
+                paramsTitle.textContent = `${modelNameMap[selectedModel] || 'Engine'} Parameters`;
+            } else {
+                console.error("paramsTitle element not found");
+            }
+
+
+            // --- FIX Starts Here ---
+
+            // Hide all parameter sections first using their direct references
+            // Add checks to ensure the elements exist before accessing style
+            if (xttsParams) xttsParams.style.display = 'none';
+            if (piperParams) piperParams.style.display = 'none';
+            if (barkParams) barkParams.style.display = 'none';
+            if (elevenlabsParams) elevenlabsParams.style.display = 'none';
+
+            // Show the relevant section based on the selectedModel value
+            let sectionToShow = null;
+            if (selectedModel === 'XTTSv2' && xttsParams) {
+                sectionToShow = xttsParams;
+            } else if (selectedModel === 'Piper' && piperParams) {
+                sectionToShow = piperParams;
+            } else if (selectedModel === 'Bark' && barkParams) {
+                sectionToShow = barkParams;
+            } else if (selectedModel === 'ElevenLabs' && elevenlabsParams) {
+                sectionToShow = elevenlabsParams;
+            }
+
+            // Set the display property of the selected section to 'block'
+            if (sectionToShow) {
+                sectionToShow.style.display = 'block'; // <-- This makes it visible
+
+                // Special handling for specific models (Keep existing logic)
+                if (selectedModel === 'ElevenLabs') {
+                    handleKeySelection(); // Re-check key status/selection
+                }
+                if (selectedModel === 'Piper') {
+                     updatePiperModelPaths();
+                }
+            } else {
+                 // Log a warning if no matching section was found (useful for debugging)
+                 console.warn(`Parameter section element not found for model: ${selectedModel}`);
+            }
+            // --- FIX Ends Here ---
+        }
+
+        function setUIDisabledState(disabled) {
+            synthesizeBtn.disabled = disabled;
+            modelSelect.disabled = disabled;
+            textInput.disabled = disabled;
+            // Could add disabling parameter controls too if desired during synthesis
+        }
+
+        function showProgressOverlay(modelName) {
+            progressMessage.textContent = `Initializing ${modelName} synthesis...`;
+            progressTimeElement.textContent = `Time elapsed: 0s`;
+            progressOverlay.style.display = 'flex';
+            setUIDisabledState(true);
+            synthesisStartTime = Date.now();
+            progressInterval = setInterval(updateProgressTime, 1000);
+        }
+
+        function hideProgressOverlay() {
+            clearInterval(progressInterval);
+            progressInterval = null;
+            progressOverlay.style.display = 'none';
+            setUIDisabledState(false);
+        }
+
+        function updateStatus(message, type = 'muted') {
+             statusMessage.textContent = message;
+             statusMessage.className = `text-${type} small`; // Reset classes
+        }
+
+        function showResultModal(title, message, audioUrl = null, isError = false) {
+            resultTitle.innerHTML = `<i class="bi bi-${isError ? 'exclamation-triangle-fill text-danger' : 'check-circle-fill text-success'} me-2"></i>${title}`;
+            resultMessage.textContent = message;
+
+            if (audioUrl) {
+                resultPlayer.src = audioUrl;
+                resultPlayerContainer.style.display = 'block';
+            } else {
+                resultPlayerContainer.style.display = 'none';
+            }
+            resultModal.show();
+        }
+
+        // --- Synthesis Logic ---
+
+        function startSynthesis() {
+            const selectedModel = modelSelect.value;
+            const text = textInput.value.trim();
+
+            if (!text) {
+                showResultModal('Input Required', 'Please enter some text to synthesize.', null, true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('text', text);
+            formData.append('model_type', selectedModel);
+
+            // Append model-specific parameters
+            try {
+                appendModelParameters(formData, selectedModel);
+            } catch (error) {
+                showResultModal('Configuration Error', error.message, null, true);
+                return; // Stop if parameters are invalid
+            }
+
+            showProgressOverlay(selectedModel);
+            updateStatus(`Processing with ${selectedModel}...`, 'info');
+
+            fetch('/api/synthesize', { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.job_id) {
+                        pollJobStatus(data.job_id, selectedModel);
+                    } else {
+                        handleSynthesisError(data.message || 'Failed to start synthesis job.');
+                    }
+                })
+                .catch(error => {
+                    handleSynthesisError(`Network error: ${error.message}`);
+                });
+        }
+
+        function appendModelParameters(formData, selectedModel) {
+            switch (selectedModel) {
+                case 'XTTSv2':
+                    formData.append('language', xttsLanguage.value);
+                    // --- Prioritize Recording, then Upload, then Sample ---
+                    if (recordedSpeakerBlob) {
+                        // Append the blob with a filename the backend expects
+                        formData.append('speaker_blob', recordedSpeakerBlob, 'recorded_speaker.wav');
+                        console.log("Appending recorded speaker blob to form data.");
+                    } else if (speakerWavUpload.files.length > 0) {
+                        formData.append('speaker_file', speakerWavUpload.files[0]);
+                         console.log("Appending uploaded speaker file to form data.");
+                    } else if (speakerSampleSelect.value) {
+                        formData.append('speaker_sample', speakerSampleSelect.value);
+                         console.log("Appending selected speaker sample to form data.");
+                    } else {
+                         console.log("No speaker reference provided for XTTSv2, using default.");
+                    }
+                    break;
+                case 'Piper':
+                    if (!piperOnnxPath.value || !piperJsonPath.value) {
+                        throw new Error('Please select a Piper voice model.');
+                    }
+                    formData.append('model_onnx_path', piperOnnxPath.value);
+                    formData.append('model_json_path', piperJsonPath.value);
+                    break;
+                case 'Bark':
+                    formData.append('voice_preset', barkVoicePreset.value);
+                    formData.append('model_name', barkModelName.value);
+                    break;
+                case 'ElevenLabs':
+                    const selectedKeyName = elevenlabsKeySelect.value;
+                    const manualKey = validatedApiKey;
+
+                    if (!selectedKeyName && !manualKey) {
+                        throw new Error('Please select a stored ElevenLabs API key or validate a manual one.');
+                    }
+                    if (!elevenlabsVoice.value) {
+                        throw new Error('Please select an ElevenLabs voice.');
+                    }
+
+                    formData.append('voice_id', elevenlabsVoice.value);
+                    formData.append('model_id', elevenlabsModel.value);
+                    if (selectedKeyName) {
+                        formData.append('api_key_name', selectedKeyName);
+                    } else {
+                        formData.append('api_key_manual', manualKey);
+                    }
+                    break;
+                default:
+                    throw new Error(`Unknown model type: ${selectedModel}`);
+            }
+        }
+
+        function pollJobStatus(jobId, modelName) {
+            fetch(`/api/job/${jobId}`)
+                .then(response => response.json())
+                .then(data => {
+                    progressMessage.textContent = data.message || `Processing with ${modelName}...`;
+
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        hideProgressOverlay();
+                        if (data.status === 'completed' && data.success) {
+                            updateStatus('Synthesis complete!', 'success');
+                            refreshAudioList();
+                            showResultModal(
+                                'Synthesis Complete',
+                                `${data.message} (Duration: ${data.duration?.toFixed(2) ?? 'N/A'}s)`,
+                                data.audio_url
+                            );
+                        } else {
+                            handleSynthesisError(data.message || 'Synthesis job failed.');
+                        }
+                    } else {
+                        setTimeout(() => pollJobStatus(jobId, modelName), 1500);
+                    }
+                })
+                .catch(error => {
+                    handleSynthesisError(`Error checking job status: ${error.message}`);
+                });
+        }
+
+        function handleSynthesisError(errorMessage) {
+            hideProgressOverlay();
+            updateStatus('Synthesis failed.', 'danger');
+            showResultModal('Synthesis Error', errorMessage, null, true);
+        }
+
+        function updateProgressTime() {
+            const elapsedSeconds = Math.floor((Date.now() - synthesisStartTime) / 1000);
+            progressTimeElement.textContent = `Time elapsed: ${elapsedSeconds}s`;
+        }
+
+        // --- Audio Playback ---
+        // (Keep playAudio, pauseAudio, stopAudio, seekAudio, updatePlaybackTime, updateDuration, handlePlaybackEnd, handleAudioError, formatTime functions as they were in the previous response)
+        function playAudio() {
+            if (audioPlayer.src && audioPlayer.paused) {
+                audioPlayer.play().catch(handleAudioError); // Catch potential play errors
+                playBtn.disabled = true;
+                pauseBtn.disabled = false;
+                stopBtn.disabled = false;
+                isPlaying = true;
+            }
+        }
+
+        function pauseAudio() {
+            if (!audioPlayer.paused) {
+                audioPlayer.pause();
+                playBtn.disabled = false;
+                pauseBtn.disabled = true;
+                isPlaying = false;
+            }
+        }
+
+        function stopAudio() {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            playBtn.disabled = !audioPlayer.src || isNaN(audioPlayer.duration); // Enable only if src is valid & loaded
+            pauseBtn.disabled = true;
+            stopBtn.disabled = true;
+            isPlaying = false;
+            updatePlaybackTime(); // Reset time display
+            if (seekSlider.value !== "0") seekSlider.value = 0; // Reset slider only if needed
+        }
+
+        function seekAudio() {
+            if (!isNaN(audioPlayer.duration) && isFinite(audioPlayer.duration)) {
+                const seekTo = audioPlayer.duration * (seekSlider.value / 100);
+                audioPlayer.currentTime = seekTo;
+            }
+        }
+
+         function updatePlaybackTime() {
+            if (!isNaN(audioPlayer.duration) && isFinite(audioPlayer.duration) && audioPlayer.currentTime != null) {
+                 currentTimeElement.textContent = formatTime(audioPlayer.currentTime);
+                 // Prevent setting slider value if user is currently dragging it
+                 if (!seekSlider.matches(':active')) {
+                     const percent = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                     seekSlider.value = percent;
+                 }
+             } else {
+                 currentTimeElement.textContent = '00:00';
+                 if (!seekSlider.matches(':active')) {
+                     seekSlider.value = 0;
+                 }
+             }
+         }
+
+        function updateDuration() {
+             if (!isNaN(audioPlayer.duration) && isFinite(audioPlayer.duration)) {
+                 durationElement.textContent = formatTime(audioPlayer.duration);
+                 seekSlider.disabled = false;
+                 if (selectedAudioItem) { // Only enable play if an item is truly selected and loaded
+                     playBtn.disabled = false;
+                 }
+             } else {
+                 durationElement.textContent = '00:00';
+                 seekSlider.disabled = true;
+                 playBtn.disabled = true;
+                 pauseBtn.disabled = true;
+                 stopBtn.disabled = true;
+             }
+        }
+
+        function handlePlaybackEnd() {
+            stopAudio(); // Reset controls when audio finishes
+        }
+
+        function handleAudioError(e) {
+            console.error("Audio Player Error:", e);
+            const filename = selectedAudioItem ? selectedAudioItem.dataset.filename : 'the selected file';
+            stopAudio(); // Reset player state
+            durationElement.textContent = "Error";
+            currentTimeElement.textContent = "--:--";
+            seekSlider.disabled = true;
+            playBtn.disabled = true;
+            pauseBtn.disabled = true;
+            stopBtn.disabled = true;
+            showResultModal('Playback Error', `Could not play audio: ${filename}. The file might be corrupted or in an unsupported format.`, null, true);
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds) || !isFinite(seconds)) {
+                return '--:--';
+            }
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // --- ElevenLabs Specific Functions ---
+        // (Keep validateElevenLabsKey, handleKeySelection, setKeyValidationState, setKeyStatus, enableElevenLabsFeatures, fetchElevenLabsVoices, fetchElevenLabsCredits, setRefreshButtonState functions as they were)
+         function validateElevenLabsKey() {
+            const apiKey = elevenlabsApiKey.value.trim();
+            if (!apiKey) {
+                 setKeyStatus('Please enter an API key.', 'warning');
+                 return;
+            }
+            // Clear stored key selection if manual key is being validated
+            elevenlabsKeySelect.value = '';
+
+            setKeyValidationState(true, 'Validating...');
+
+            fetch('/api/elevenlabs/validate_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: apiKey })
+            })
+            .then(response => response.json())
+            .then(data => {
+                setKeyValidationState(false); // Re-enable button
+                if (data.success) {
+                    setKeyStatus('Manual key valid', 'success');
+                    validatedApiKey = apiKey; // Store the validated manual key
+                    enableElevenLabsFeatures(true);
+                    fetchElevenLabsVoices(); // Fetch with validated key
+                    fetchElevenLabsCredits();
+                } else {
+                    setKeyStatus(`Invalid: ${data.message}`, 'danger');
+                    validatedApiKey = null;
+                    enableElevenLabsFeatures(false);
+                }
+            })
+            .catch(error => {
+                setKeyValidationState(false);
+                setKeyStatus(`Error: ${error.message}`, 'danger');
+                validatedApiKey = null;
+                enableElevenLabsFeatures(false);
+            });
+        }
+
+        function handleKeySelection() {
+            const selectedKeyName = elevenlabsKeySelect.value;
+
+            if (selectedKeyName) {
+                // Using a stored key
+                elevenlabsApiKey.value = ''; // Clear manual input
+                validatedApiKey = null; // Don't use manual key if stored is selected
+                setKeyStatus('Using stored key', 'info');
+                enableElevenLabsFeatures(true);
+                fetchElevenLabsVoices(selectedKeyName); // Fetch using key name
+                fetchElevenLabsCredits(selectedKeyName);
+            } else if (validatedApiKey) {
+                 // Fallback to previously validated manual key if selection cleared
+                 setKeyStatus('Using validated manual key', 'success');
+                 enableElevenLabsFeatures(true);
+                 fetchElevenLabsVoices();
+                 fetchElevenLabsCredits();
+            }
+            else {
+                // No key selected or validated
+                 setKeyStatus('Not validated', 'muted');
+                 enableElevenLabsFeatures(false);
+                 validatedApiKey = null;
+            }
+        }
+
+         function setKeyValidationState(isValidating, message = 'Validating...') {
+            validateKeyBtn.disabled = isValidating;
+            validateKeyBtn.innerHTML = isValidating
+                ? `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${message}`
+                : 'Validate';
+            if (isValidating) {
+                 setKeyStatus(message, 'warning');
+            }
+        }
+
+        function setKeyStatus(message, type) {
+            keyStatus.textContent = message;
+            keyStatus.className = `text-${type}`; // Use Bootstrap text color classes
+        }
+
+        function enableElevenLabsFeatures(enabled) {
+            refreshVoicesBtn.disabled = !enabled;
+            refreshCreditsBtn.disabled = !enabled;
+            elevenlabsVoice.disabled = !enabled;
+
+            if (!enabled) {
+                elevenlabsVoice.innerHTML = '<option value="">-- Validate API key first --</option>';
+                elevenlabsCredits.textContent = 'Validate key to check credits.';
+            }
+        }
+
+        function fetchElevenLabsVoices(keyName = null) {
+             setRefreshButtonState(refreshVoicesBtn, true);
+             elevenlabsVoice.disabled = true;
+             elevenlabsVoice.innerHTML = '<option value="">Loading voices...</option>';
+
+             const requestBody = keyName ? { key_name: keyName } : { api_key: validatedApiKey };
+             if (!keyName && !validatedApiKey) {
+                 setRefreshButtonState(refreshVoicesBtn, false);
+                 elevenlabsVoice.innerHTML = '<option value="">No valid API key</option>';
+                 return; // Don't fetch if no key available
+             }
+
+             fetch('/api/elevenlabs/voices', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(requestBody)
+             })
+             .then(response => response.json())
+             .then(data => {
+                 setRefreshButtonState(refreshVoicesBtn, false);
+                 if (data.success && data.voices && data.voices.length > 0) {
+                     elevenlabsVoice.innerHTML = ''; // Clear loading message
+                     data.voices.forEach(voice => {
+                        // Add more info to the option text if available
+                        let label = voice.name;
+                        if (voice.labels) {
+                            const labelEntries = Object.entries(voice.labels)
+                                .filter(([key, value]) => value && key !== 'description') // Filter out empty/description labels
+                                .map(([key, value]) => `${key}: ${value}`);
+                            if (labelEntries.length > 0) {
+                                label += ` (${labelEntries.join(', ')})`;
+                            } else if (voice.labels.description) {
+                                 label += ` (${voice.labels.description})`;
+                            }
+                        }
+                         const option = new Option(label, voice.id);
+                         option.title = label; // Add tooltip for long names
+                         elevenlabsVoice.appendChild(option);
+                     });
+                     elevenlabsVoice.disabled = false;
+                 } else {
+                     elevenlabsVoice.innerHTML = `<option value="">-- ${data.message || 'No voices found'} --</option>`;
+                 }
+             })
+             .catch(error => {
+                 setRefreshButtonState(refreshVoicesBtn, false);
+                 elevenlabsVoice.innerHTML = '<option value="">Error loading voices</option>';
+                 console.error("Error fetching ElevenLabs voices:", error);
+             });
+        }
+
+         function fetchElevenLabsCredits(keyName = null) {
+             setRefreshButtonState(refreshCreditsBtn, true);
+             elevenlabsCredits.textContent = 'Loading credits...';
+
+             const requestBody = keyName ? { key_name: keyName } : { api_key: validatedApiKey };
+             if (!keyName && !validatedApiKey) {
+                 setRefreshButtonState(refreshCreditsBtn, false);
+                 elevenlabsCredits.textContent = 'No valid API key';
+                 return; // Don't fetch if no key available
+             }
+
+             fetch('/api/elevenlabs/subscription', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(requestBody)
+             })
+             .then(response => response.json())
+             .then(data => {
+                 setRefreshButtonState(refreshCreditsBtn, false);
+                 if (data.success && data.subscription) {
+                     const sub = data.subscription;
+                     const used = sub.character_count || 0;
+                     const total = sub.character_limit || 0;
+                     const remaining = Math.max(0, total - used); // Ensure non-negative
+                     const percentRemaining = total > 0 ? ((remaining / total) * 100).toFixed(1) : 0;
+                     const tier = sub.tier ? sub.tier.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Unknown';
+
+                     elevenlabsCredits.textContent = `Tier: ${tier} | Remaining: ${remaining.toLocaleString()}/${total.toLocaleString()} chars (${percentRemaining}%)`;
+                     elevenlabsCredits.title = `Character Count: ${used.toLocaleString()} / ${total.toLocaleString()}`; // Add tooltip
+                 } else {
+                     elevenlabsCredits.textContent = `Error: ${data.message || 'Could not load credits'}`;
+                     elevenlabsCredits.title = ''; // Clear tooltip on error
+                 }
+             })
+             .catch(error => {
+                 setRefreshButtonState(refreshCreditsBtn, false);
+                 elevenlabsCredits.textContent = 'Error loading credits';
+                  elevenlabsCredits.title = '';
+                 console.error("Error fetching ElevenLabs credits:", error);
+             });
+        }
+
+        function setRefreshButtonState(button, isLoading) {
+             button.disabled = isLoading;
+             button.innerHTML = isLoading
+                 ? '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>'
+                 : '<i class="bi bi-arrow-clockwise m-0"></i>';
+        }
+
+
+        // --- XTTSv2 Speaker Functions ---
+
+        function handleSpeakerUpload() {
+            if (speakerWavUpload.files.length > 0) {
+                setActiveSpeakerSource('upload');
+            }
+        }
+        function handleSpeakerSampleSelection() {
+            if (speakerSampleSelect.value) {
+                 setActiveSpeakerSource('sample');
+            } else {
+                // If "-- Select Sample --" is chosen, don't automatically activate anything
+                // User might want to use upload or recording instead.
+                 // setActiveSpeakerSource(null); // Or keep current if one is active
+            }
+        }
+        function clearSpeakerSelection() {
+            setActiveSpeakerSource(null); // Clears all selections
+        }
+
+        function setActiveSpeakerSource(sourceType) {
+            // Reset all states first
+            speakerSampleSelect.value = '';
+            speakerWavUpload.value = ''; // Clears the file input selection
+            recordedSpeakerBlob = null; // Discard blob implicitly
+            resetRecordingUI(false); // Reset recording buttons/preview but keep status 'Idle' if not recording
+
+            // Remove active styling from all wrappers
+            speakerSampleWrapper.classList.remove('speaker-source-active');
+            speakerUploadWrapper.classList.remove('speaker-source-active');
+            speakerRecordingWrapper.classList.remove('speaker-source-active');
+            recordingStatus.textContent = 'Status: Idle'; // Ensure status is reset visually
+            recordingStatus.className = 'mt-2 small';
+
+
+            // Set the new active state
+            if (sourceType === 'sample') {
+                speakerSampleWrapper.classList.add('speaker-source-active');
+            } else if (sourceType === 'upload') {
+                speakerUploadWrapper.classList.add('speaker-source-active');
+            } else if (sourceType === 'recording') {
+                 // The 'useRecording' function will handle setting the blob
+                 // and the active state for the recording wrapper.
+                 recordedSpeakerBlob = audioChunks.length > 0 ? new Blob(audioChunks, { type: 'audio/wav' }) : null; // Re-create blob just in case
+                 if (recordedSpeakerBlob) {
+                      speakerRecordingWrapper.classList.add('speaker-source-active');
+                      updateRecordingStatus("Recording ready to use", "available");
+                      useRecordBtn.disabled = true; // Already used
+                      discardRecordBtn.disabled = false; // Can still discard
+                 } else {
+                     // This case shouldn't normally happen if called from useRecording
+                     // but handle defensively
+                     resetRecordingState();
+                 }
+            } else {
+                 // sourceType is null or unknown - everything is cleared
+                  resetRecordingState(); // Ensure recording state is fully idle
+            }
+
+             console.log(`Active speaker source set to: ${sourceType || 'None'}`);
+        }
+
+
+        // --- XTTSv2 Recording Functions ---
+
+        async function startRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                console.warn("Recording already in progress.");
+                return;
+            }
+
+            // Clear previous selections
+            setActiveSpeakerSource(null);
+
+            try {
+                // Check for getUserMedia support
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                     throw new Error("Browser doesn't support audio recording (getUserMedia).");
+                }
+
+                // Request microphone permission
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+                updateRecordingStatus("Waiting for microphone...", "warning"); // Initial feedback
+
+                // Create MediaRecorder
+                // Try specific MIME types known to work well, fallback to default
+                const options = { mimeType: 'audio/wav' }; // Prefer WAV if possible
+                try {
+                    mediaRecorder = new MediaRecorder(audioStream, options);
+                } catch (e) {
+                    console.warn("WAV mimeType not supported, falling back.", e);
+                    try {
+                        options.mimeType = 'audio/webm;codecs=opus'; // Common fallback
+                        mediaRecorder = new MediaRecorder(audioStream, options);
+                    } catch (e2) {
+                         console.warn("WebM/Opus mimeType not supported, using browser default.", e2);
+                         mediaRecorder = new MediaRecorder(audioStream); // Browser default
+                    }
+                }
+                console.log(`Using mimeType: ${mediaRecorder.mimeType}`);
+
+
+                audioChunks = []; // Reset chunks for new recording
+
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    console.log("MediaRecorder stopped.");
+                     if (audioChunks.length === 0) {
+                        console.warn("No audio data recorded.");
+                        updateRecordingStatus("No audio data captured.", "warning");
+                        resetRecordingUI(true); // Reset to idle state
+                        return;
+                    }
+                    // Create the final Blob
+                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType }); // Use the actual mimeType
+                    const audioUrl = URL.createObjectURL(audioBlob);
+
+                    // Update UI
+                    recordingPreview.src = audioUrl;
+                    recordingPreview.style.display = 'block';
+                    recordBtn.disabled = false;
+                    stopRecordBtn.disabled = true;
+                    useRecordBtn.disabled = false;
+                    discardRecordBtn.disabled = false;
+                    updateRecordingStatus("Recording finished. Preview available.", "info");
+
+                    // Stop the microphone track(s)
+                    if (audioStream) {
+                        audioStream.getTracks().forEach(track => track.stop());
+                        audioStream = null; // Clear the stream reference
+                    }
+                };
+
+                 mediaRecorder.onerror = (event) => {
+                    console.error("MediaRecorder error:", event.error);
+                    updateRecordingStatus(`Recording error: ${event.error.name}`, "danger");
+                    resetRecordingState(); // Reset completely on error
+                     if (audioStream) {
+                         audioStream.getTracks().forEach(track => track.stop());
+                         audioStream = null;
+                     }
+                };
+
+                // Start recording
+                mediaRecorder.start();
+                console.log("MediaRecorder started.");
+                updateRecordingStatus("Recording...", "recording");
+
+                // Update button states
+                recordBtn.disabled = true;
+                stopRecordBtn.disabled = false;
+                useRecordBtn.disabled = true;
+                discardRecordBtn.disabled = true;
+                recordingPreview.style.display = 'none'; // Hide preview while recording
+
+            } catch (err) {
+                console.error("Error starting recording:", err);
+                let message = "Could not start recording.";
+                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    message = "Microphone permission denied. Please allow access in your browser settings.";
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                     message = "No microphone found.";
+                 } else if (err.message.includes("getUserMedia")) {
+                    message = "Your browser does not support audio recording."
+                 }
+
+                updateRecordingStatus(message, "danger");
+                resetRecordingState(); // Ensure UI resets on error
+                 if (audioStream) { // Clean up stream if it was partially acquired
+                     audioStream.getTracks().forEach(track => track.stop());
+                     audioStream = null;
+                 }
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop(); // This will trigger the 'onstop' event handler
+            } else {
+                console.warn("MediaRecorder not recording or not initialized.");
+                 // If somehow stop is clicked without active recording, reset UI
+                 resetRecordingUI(true);
+            }
+        }
+
+        function useRecording() {
+            if (audioChunks.length > 0) {
+                 // Set the active source, which also sets the recordedSpeakerBlob
+                 setActiveSpeakerSource('recording');
+                 // No need to manage buttons here, setActiveSpeakerSource does it
+            } else {
+                console.warn("No recording available to use.");
+                updateRecordingStatus("No recording available.", "warning");
+            }
+        }
+
+        function discardRecording() {
+             resetRecordingState(); // Reset everything including blob and UI
+             // Ensure no speaker source is marked active implicitly
+             setActiveSpeakerSource(null);
+        }
+
+         function resetRecordingState() {
+            console.log("Resetting recording state.");
+             // Stop recording if active
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                 mediaRecorder.stop();
+             }
+             // Stop audio stream tracks
+             if (audioStream) {
+                 audioStream.getTracks().forEach(track => track.stop());
+                 audioStream = null;
+             }
+
+             // Clear variables
+             mediaRecorder = null;
+             audioChunks = [];
+             recordedSpeakerBlob = null;
+
+             // Reset UI elements
+             resetRecordingUI(true); // Full UI reset
+
+             // Ensure the recording wrapper is not marked as active
+             speakerRecordingWrapper.classList.remove('speaker-source-active');
+         }
+
+         function resetRecordingUI(toIdle = true) {
+             recordBtn.disabled = false;
+             stopRecordBtn.disabled = true;
+             useRecordBtn.disabled = true;
+             discardRecordBtn.disabled = true;
+             recordingPreview.style.display = 'none';
+             recordingPreview.removeAttribute('src'); // Clear preview source
+
+             if (toIdle) {
+                 updateRecordingStatus("Status: Idle", "muted");
+             }
+         }
+
+        function updateRecordingStatus(message, type = "muted") { // Type can be 'muted', 'info', 'warning', 'danger', 'success', 'recording', 'available'
+            recordingStatus.textContent = `Status: ${message}`;
+            // Apply specific classes for recording/available, otherwise use text-*
+            recordingStatus.className = 'mt-2 small'; // Reset classes
+            if (type === 'recording' || type === 'available') {
+                recordingStatus.classList.add(type);
+            } else {
+                 recordingStatus.classList.add(`text-${type}`);
+            }
+        }
+
+
+        // --- Piper Functions ---
+        function updatePiperModelPaths() {
+            const selectedOption = piperModelSelect.options[piperModelSelect.selectedIndex];
+            if (selectedOption && selectedOption.value) { // Check if a valid option is selected
+                piperOnnxPath.value = selectedOption.dataset.onnx || '';
+                piperJsonPath.value = selectedOption.dataset.json || '';
+            } else {
+                piperOnnxPath.value = '';
+                piperJsonPath.value = '';
+            }
+        }
+
+        // --- Audio List Management ---
+        // (Keep handleAudioListClick, selectAudioItem, selectAndPlayAudio, refreshAudioList, deleteAudioFile, resetAudioPlayerUI functions as they were)
+         function handleAudioListClick(event) {
+             const target = event.target;
+             const audioItem = target.closest('.audio-item');
+             const deleteButton = target.closest('.delete-audio');
+
+             if (deleteButton) {
+                 event.stopPropagation(); // Prevent selection when clicking delete
+                 const filename = deleteButton.dataset.filename;
+                 // Use template literal for cleaner string formatting
+                 if (confirm(`Are you sure you want to delete "${filename}"? This cannot be undone.`)) {
+                     deleteAudioFile(filename, audioItem);
+                 }
+             } else if (audioItem) {
+                 selectAudioItem(audioItem);
+             }
+         }
+
+         function selectAudioItem(item) {
+             if (!item || item === selectedAudioItem) return; // Ignore if no item or already selected
+
+             // Remove selected class from previous
+             if (selectedAudioItem) {
+                 selectedAudioItem.classList.remove('selected');
+             }
+
+             // Add selected class to current
+             item.classList.add('selected');
+             selectedAudioItem = item;
+
+             // Load the audio
+             const audioPath = item.dataset.path;
+             if (!audioPath) {
+                 console.error("Audio item missing data-path attribute:", item);
+                 handleAudioError(new Error("Audio path not found for selected item."));
+                 return;
+             }
+             audioPlayer.src = audioPath;
+             audioPlayer.load(); // Important to load metadata
+
+             // Reset player state but enable play/slider based on loadedmetadata event
+             stopAudio(); // Reset first
+             seekSlider.disabled = true; // Disable until loaded
+             playBtn.disabled = true; // Disable until loaded
+             currentTimeElement.textContent = '00:00';
+             durationElement.textContent = 'Loading...'; // Indicate loading
+         }
+
+         function selectAndPlayAudio(filename) {
+            const itemToSelect = audioList.querySelector(`.audio-item[data-filename="${filename}"]`);
+            if (itemToSelect) {
+                selectAudioItem(itemToSelect);
+                // Play will be enabled by updateDuration once metadata loads.
+                // We can set a flag or use a listener for 'canplay'/'loadedmetadata'
+                // to trigger play automatically if desired.
+                // Example: Auto-play after metadata loads
+                const autoPlayHandler = () => {
+                    if (!playBtn.disabled) { // Check if loading succeeded
+                        playAudio();
+                    }
+                   audioPlayer.removeEventListener('loadedmetadata', autoPlayHandler); // Clean up listener
+                   audioPlayer.removeEventListener('error', autoPlayErrorHandler); // Clean up error listener
+                };
+                const autoPlayErrorHandler = () => {
+                    // Don't try to play if loading failed
+                    audioPlayer.removeEventListener('loadedmetadata', autoPlayHandler);
+                    audioPlayer.removeEventListener('error', autoPlayErrorHandler);
+                };
+                 audioPlayer.addEventListener('loadedmetadata', autoPlayHandler);
+                 audioPlayer.addEventListener('error', autoPlayErrorHandler); // Handle load errors
+
+            } else {
+                console.warn(`Could not find audio item with filename: ${filename} to select and play.`);
+            }
+         }
+
+
+        function refreshAudioList() {
+            fetch('/api/audio_files')
+                .then(response => response.json())
+                .then(data => {
+                    const previouslySelectedFilename = selectedAudioItem ? selectedAudioItem.dataset.filename : null;
+                    audioList.innerHTML = ''; // Clear current list
+
+                    if (data.success && data.files && data.files.length > 0) {
+                        data.files.forEach(file => {
+                            const audioItem = document.createElement('div');
+                            audioItem.className = 'audio-item';
+                            audioItem.dataset.filename = file.filename;
+                             // Ensure the path is correctly formed based on your Flask static setup
+                            audioItem.dataset.path = `/audio/${encodeURIComponent(file.filename)}`;
+                            audioItem.setAttribute('role', 'button');
+                            audioItem.setAttribute('tabindex', '0'); // Make it focusable
+
+                            audioItem.innerHTML = `
+                                <div class="audio-info">
+                                    <span class="audio-filename" title="${file.filename}">
+                                        <i class="bi bi-file-earmark-music me-2 text-secondary"></i>
+                                        ${file.filename}
+                                    </span>
+                                    <div class="audio-meta">
+                                        ${file.size_mb != null ? file.size_mb + ' MB' : 'Size unknown'}
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger delete-audio" data-filename="${file.filename}" title="Delete ${file.filename}">
+                                    <i class="bi bi-trash m-0"></i>
+                                </button>
+                            `;
+                            audioList.appendChild(audioItem);
+                        });
+                    } else {
+                        audioList.innerHTML = `
+                            <div class="audio-list-empty">
+                                No audio files generated yet.
+                            </div>`;
+                    }
+                     // Try to re-select the previously selected item
+                     if (previouslySelectedFilename) {
+                        const newSelectedItem = audioList.querySelector(`.audio-item[data-filename="${previouslySelectedFilename}"]`);
+                        if (newSelectedItem) {
+                            newSelectedItem.classList.add('selected');
+                            selectedAudioItem = newSelectedItem; // Update reference
+                        } else {
+                             // Previously selected item was deleted or is no longer present
+                             resetAudioPlayerUI();
+                        }
+                     } else {
+                        resetAudioPlayerUI(); // Ensure player is reset if nothing was selected before
+                     }
+
+                })
+                .catch(error => {
+                    console.error("Error refreshing audio list:", error);
+                    audioList.innerHTML = '<div class="audio-list-empty text-danger">Error loading audio files.</div>';
+                    resetAudioPlayerUI();
+                });
+        }
+
+        function deleteAudioFile(filename, itemElement) {
+            if (!filename || !itemElement) return;
+
+            // Optimistic UI update: remove item immediately
+             const wasSelected = itemElement.classList.contains('selected');
+             itemElement.remove();
+
+             // Check if the list is now empty and show the message if needed
+             if (audioList.children.length === 0) {
+                  audioList.innerHTML = `
+                      <div class="audio-list-empty">
+                          No audio files generated yet.
+                      </div>`;
+             }
+
+            if (wasSelected) {
+                resetAudioPlayerUI(); // Clear player if the deleted item was playing/selected
+            }
+
+            fetch(`/api/delete_audio/${encodeURIComponent(filename)}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        // Deletion failed on the server, show error and refresh list to show actual state
+                        console.error(`Failed to delete file "${filename}": ${data.message}`);
+                        showResultModal('Deletion Error', `Could not delete file "${filename}" on the server: ${data.message}`, null, true);
+                        refreshAudioList(); // Re-sync UI with server state
+                    }
+                    // On success, UI was already updated optimistically
+                })
+                .catch(error => {
+                     // Network or other error during deletion
+                     console.error(`Error during deletion request for "${filename}":`, error);
+                     showResultModal('Deletion Error', `Network error while trying to delete "${filename}". Please check the list.`, null, true);
+                     refreshAudioList(); // Re-sync UI with server state
+                });
+        }
+
+        function resetAudioPlayerUI() {
+            if (selectedAudioItem) {
+                selectedAudioItem.classList.remove('selected');
+            }
+             selectedAudioItem = null;
+             stopAudio();
+             // Only clear src if it's actually set to avoid unnecessary network requests on some browsers
+             if (audioPlayer.currentSrc) {
+                 audioPlayer.removeAttribute('src');
+                 audioPlayer.load(); // Required by some browsers after removing src
+             }
+             durationElement.textContent = '00:00';
+             currentTimeElement.textContent = '00:00';
+             seekSlider.value = 0;
+             seekSlider.disabled = true;
+             playBtn.disabled = true;
+             pauseBtn.disabled = true;
+             stopBtn.disabled = true;
+        }
+
+    </script>
+</body>
+</html>

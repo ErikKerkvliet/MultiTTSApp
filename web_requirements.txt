@@ -1,0 +1,18 @@
+# Web application dependencies
+flask>=2.0.0
+werkzeug>=2.0.0
+python-dotenv>=1.0.0
+
+# TTS engine dependencies
+TTS>=0.21.1,<0.22.0          # For XTTSv2
+piper-tts>=1.2.0             # For Piper TTS
+torch>=2.0.0                 # PyTorch (GPU support recommended)
+transformers>=4.30.0         # For Bark
+accelerate>=0.23.0           # Optional acceleration for transformers
+elevenlabs>=0.2.26           # ElevenLabs API client
+soundfile>=0.12.1            # Audio file handling
+scipy>=1.10.1                # Signal processing
+numpy>=1.24.0                # Numerical operations
+
+# Optional - for handling MP3 files (used by ElevenLabs)
+pydub>=0.25.1
