@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 import uuid
 from tts_api import MultiTTSAPI
+from tts_engines import elevenlabs_engine
 
 # Configure logging
 logging.basicConfig(
