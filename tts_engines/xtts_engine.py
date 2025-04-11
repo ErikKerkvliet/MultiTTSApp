@@ -90,7 +90,7 @@ def synthesize_xtts(text, speaker_wav_path, language, output_path):
         return True, f"Audio succesvol opgeslagen in {output_path}"
 
     except Exception as e:
-        logging.error(f"FOUT tijdens XTTS synthese: {e}", exc_info=True)
+        logging.error(f"FOUT tijdens XTTS synthese: {e}")
         return False, f"XTTS synthese mislukt: {e}"
 
 # Voorbeeld van direct testen (optioneel)
