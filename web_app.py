@@ -249,14 +249,46 @@ def synthesize():
         elif model_type == 'XTTSv2':
              # ... (extract params, start thread, init job_id) ...
              language = data.get('language', 'en')
-             # Handle speaker file upload/selection as before...
              speaker_wav_path = None
+             # Handle speaker file upload/selection as before...
              if 'speaker_file' in request.files and request.files['speaker_file'].filename:
-                 # ... (save uploaded file) ...
-                 pass # Placeholder
-             elif data.get('speaker_sample'):
-                 # ... (get path for existing sample) ...
-                 pass # Placeholder
+                 file = request.files['speaker_file']
+                 if file and file.filename and file.filename.lower().endswith('.wav'):
+                     try:
+                         # Generate a unique, secure filename for the upload
+                         unique_prefix = str(uuid.uuid4())[:8]
+                         filename = secure_filename(f"{unique_prefix}_{file.filename}")
+                         upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+                         # Save the uploaded file temporarily
+                         file.save(upload_path)
+                         speaker_wav_path = upload_path
+                         uploaded_speaker_file = upload_path  # Store path for potential cleanup later
+                         logger.info(f"Saved uploaded speaker file to: {upload_path}")
+                     except Exception as e:
+                         logger.error(f"Error saving uploaded speaker file: {e}", exc_info=True)
+                         # Decide how to handle save error - maybe fail the job?
+                         # For now, we'll just log and proceed without a speaker file
+                         speaker_wav_path = None
+             elif not data.get('speaker_sample'):
+                 sample_filename = data.get('speaker_sample')
+                 if sample_filename:
+                     # Construct the full path to the sample file
+                     # Use secure_filename even for samples for safety
+                     safe_sample_filename = secure_filename(sample_filename)
+                     sample_path = os.path.join(tts_api.DEFAULT_SPEAKER_DIR, safe_sample_filename)
+
+                     # IMPORTANT: Verify the sample file actually exists
+                     if os.path.exists(sample_path):
+                         speaker_wav_path = sample_path
+                         logger.info(f"Using selected speaker sample: {sample_path}")
+                     else:
+                         logger.warning(f"Selected speaker sample file not found: {sample_path}")
+                         # Proceed without a speaker file if the selected one doesn't exist
+
+                 # If still no path, log it
+             if not speaker_wav_path:
+                 logger.info("No speaker WAV file uploaded or selected (or error occurred). Using default XTTS voice.")
 
              thread_params = {'language': language, 'speaker_wav_path': speaker_wav_path}
              threading.Thread(target=run_synthesis_job, args=(job_id, 'xtts', text, output_path, thread_params), daemon=True).start()

@@ -42,11 +42,11 @@ app = FastAPI(
 )
 
 # Temporary directory for files
-TEMP_DIR = "api_temp_files"
+TEMP_DIR = "api/api_temp_files"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 # Directory for output files
-OUTPUT_DIR = "api_output"
+OUTPUT_DIR = "api/api_output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
