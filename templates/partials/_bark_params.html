@@ -1,0 +1,21 @@
+<!-- Bark Parameters Content -->
+<div class="mb-3 row align-items-center">
+    <label for="bark-voice-preset" class="col-sm-3 col-form-label">Voice Preset:</label>
+    <div class="col-sm-9">
+        <select id="bark-voice-preset" class="form-select">
+            {% for voice in bark_voices %} {# <--- Data comes from Flask context #}
+            <option value="{{ voice }}">{{ voice }}</option>
+            {% endfor %}
+        </select>
+         <small class="form-text text-muted">Affects speaker, prosody, tone.</small>
+    </div>
+</div>
+<div class="mb-3 row align-items-center">
+    <label for="bark-model-name" class="col-sm-3 col-form-label">Quality:</label>
+    <div class="col-sm-9">
+        <select id="bark-model-name" class="form-select">
+            <option value="suno/bark-small" selected>Small (Faster)</option>
+            <option value="suno/bark">Full (Better Quality)</option>
+        </select>
+    </div>
+</div>

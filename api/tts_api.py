@@ -33,7 +33,7 @@ class MultiTTSAPI:
 
     # Default directories
     DEFAULT_OUTPUT_DIR = "../audio_output"
-    DEFAULT_SPEAKER_DIR = "speaker_samples"
+    DEFAULT_SPEAKER_DIR = "./speaker_samples"
     DEFAULT_PIPER_MODEL_DIR = "models/piper"
 
     def __init__(self):

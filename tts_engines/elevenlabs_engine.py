@@ -133,29 +133,49 @@ def get_subscription_info(api_key: Optional[str]) -> Dict[str, Any]:
     logger.info("Fetching ElevenLabs subscription info...")
     try:
         client = ElevenLabs(api_key=api_key)
-        sub_info_obj = client.users.get_subscription()
+        sub_info_obj = client.user.get_subscription()  # Correcte aanroep
 
-        # Convert the Subscription object to a dictionary for easier processing
-        # Adjust attributes based on the actual object structure returned by the library
-        info_dict = {
-            attr: getattr(sub_info_obj, attr, None)
-            for attr in dir(sub_info_obj)
-            if not callable(getattr(sub_info_obj, attr)) and not attr.startswith("_")
-        }
-        # Example explicit mapping (safer if library structure changes):
-        # info_dict = {
-        #     "character_count": getattr(sub_info_obj, 'character_count', 'N/A'),
-        #     "character_limit": getattr(sub_info_obj, 'character_limit', 'N/A'),
-        #     "status": getattr(sub_info_obj, 'status', 'N/A'),
-        #     "tier": getattr(sub_info_obj, 'tier', 'N/A'),
-        #     "next_character_refresh_unix": getattr(sub_info_obj, 'next_character_refresh_unix', None),
-        # }
+        # --- GEBRUIK PYDANTIC CONVERSIE ---
+        if hasattr(sub_info_obj, 'model_dump'):
+            # Pydantic v2+ methode
+            info_dict = sub_info_obj.model_dump()
+            logger.debug("Used Pydantic v2 'model_dump()' for conversion.")
+        elif hasattr(sub_info_obj, 'dict'):
+            # Pydantic v1 methode
+            info_dict = sub_info_obj.dict()
+            logger.debug("Used Pydantic v1 'dict()' for conversion.")
+        else:
+            # Fallback als Pydantic methoden niet gevonden worden (onwaarschijnlijk)
+            logger.warning(
+                "Pydantic conversion methods (.model_dump()/.dict()) not found on Subscription object. Falling back to generic conversion (might be incomplete).")
+            # Dit is de code die de fout veroorzaakte, alleen gebruiken als noodoplossing
+            info_dict = {
+                attr: getattr(sub_info_obj, attr, None)
+                for attr in dir(sub_info_obj)
+                if not callable(getattr(sub_info_obj, attr)) and not attr.startswith("_") and attr != '__signature__'
+                # Expliciet uitsluiten
+            }
+        # --- EINDE PYDANTIC CONVERSIE ---
+
+        # Controleer of de conversie succesvol was
+        if not isinstance(info_dict, dict) or not info_dict:
+            logger.error(f"Failed to convert Subscription object to dictionary. Object type: {type(sub_info_obj)}")
+            raise RuntimeError("Could not convert subscription data.")
+
         logger.info("ElevenLabs subscription info successfully fetched.")
         return info_dict
 
     except httpx.HTTPStatusError as http_err:
-        logger.error(f"HTTP Error fetching subscription info ({http_err.response.status_code})", exc_info=True)
-        raise RuntimeError(f"Could not fetch subscription info due to HTTP error: {http_err.response.status_code}")
+        error_details = _parse_elevenlabs_error_details(http_err.response)
+        logger.error(
+            f"HTTP Error fetching subscription info ({http_err.response.status_code}): {error_details}",
+            exc_info=False
+        )
+        raise RuntimeError(
+            f"Could not fetch subscription info due to HTTP error: {http_err.response.status_code} - {error_details}")
+    except AttributeError as ae:
+        logger.error(f"AttributeError fetching subscription info: {ae}", exc_info=True)
+        raise RuntimeError(f"Could not fetch subscription info: Library structure mismatch? Error: {ae}")
     except Exception as e:
         logger.error(f"Error fetching subscription info: {e}", exc_info=True)
         raise RuntimeError(f"Could not fetch subscription info: {e}")

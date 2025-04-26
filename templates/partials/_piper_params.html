@@ -1,0 +1,28 @@
+<!-- Piper Parameters Content -->
+<div class="mb-3 row align-items-center">
+    <label for="piper-model-select" class="col-sm-3 col-form-label">Model:</label> {# Added 'for' attribute #}
+    <div class="col-sm-9">
+        <select id="piper-model-select" class="form-select">
+            <option value="">-- Select a Piper voice model --</option>
+            {% for model in piper_models %} {# <--- Data comes from Flask context #}
+            <option value="{{ model.name }}"
+                    data-onnx="{{ model.onnx_path }}"
+                    data-json="{{ model.json_path }}">
+                {{ model.name }}
+            </option>
+            {% endfor %}
+        </select>
+        <small class="form-text text-muted">
+            Select a model from the `models/piper` directory.
+        </small>
+    </div>
+</div>
+<div class="mb-3 row">
+    <label for="piper-onnx-path" class="col-sm-3 col-form-label">Model Files:</label> {# Added 'for' attribute #}
+    <div class="col-sm-9">
+        <input type="text" id="piper-onnx-path" class="form-control form-control-sm mb-1"
+               placeholder="ONNX file path" readonly>
+        <input type="text" id="piper-json-path" class="form-control form-control-sm"
+               placeholder="JSON config path" readonly>
+    </div>
+</div>

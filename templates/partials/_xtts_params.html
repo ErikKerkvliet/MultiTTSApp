@@ -1,0 +1,70 @@
+<!-- XTTSv2 Parameters Content -->
+<div class="mb-3 row">
+    <label class="col-sm-3 col-form-label pt-0">Speaker Ref:</label>
+    <div class="col-sm-9">
+        <!-- Speaker Sample Selection -->
+        <div id="speaker-sample-wrapper" class="mb-2">
+            <label for="speaker-sample-select" class="form-label small">Use Existing Sample:</label>
+            <select id="speaker-sample-select" class="form-select form-select-sm">
+                <option value="">-- Select sample --</option>
+                {% for sample in speaker_samples %} {# <--- Data comes from Flask context #}
+                <option value="{{ sample }}">{{ sample }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Speaker File Upload -->
+        <div id="speaker-upload-wrapper" class="mb-2">
+             <label for="speaker-wav-upload" class="form-label small">Upload WAV File:</label>
+             <div class="input-group input-group-sm">
+                <input type="file" id="speaker-wav-upload" class="form-control" accept=".wav">
+            </div>
+        </div>
+
+         <!-- Speaker Recording -->
+         <div id="speaker-recording-wrapper" class="border rounded p-2 mt-3">
+             <label class="form-label small d-block mb-2">Record Speaker Audio:</label>
+             <div id="recording-controls" class="d-flex flex-wrap gap-2">
+                 <button id="record-btn" class="btn btn-sm btn-danger">
+                     <i class="bi bi-mic-fill"></i> Record
+                 </button>
+                 <button id="stop-record-btn" class="btn btn-sm btn-secondary" disabled>
+                     <i class="bi bi-stop-fill"></i> Stop
+                 </button>
+                 <button id="use-record-btn" class="btn btn-sm btn-success" disabled>
+                     <i class="bi bi-check-lg"></i> Use Recording
+                 </button>
+                 <button id="discard-record-btn" class="btn btn-sm btn-warning" disabled>
+                      <i class="bi bi-trash"></i> Discard
+                 </button>
+             </div>
+             <div id="recording-status" class="mt-2 small">Status: Idle</div>
+             <audio id="recording-preview" controls class="mt-2 w-100" style="display: none; height: 40px;"></audio>
+             <small class="form-text text-muted d-block mt-1">Record a short, clear sample (5-15s recommended).</small>
+         </div>
+
+        <button id="clear-speaker" class="btn btn-sm btn-outline-secondary mt-3" type="button" title="Clear speaker selection/upload/recording">
+            <i class="bi bi-x-lg"></i> Clear All Speaker Refs
+        </button>
+    </div>
+</div>
+<div class="mb-3 row align-items-center">
+    <label for="xtts-language" class="col-sm-3 col-form-label">Language:</label>
+    <div class="col-sm-9">
+        <select id="xtts-language" class="form-select">
+            <option value="en" selected>English (en)</option>
+            <option value="es">Spanish (es)</option>
+            <option value="fr">French (fr)</option>
+            <option value="de">German (de)</option>
+            <option value="it">Italian (it)</option>
+            <option value="pt">Portuguese (pt)</option>
+            <option value="pl">Polish (pl)</option>
+            <option value="tr">Turkish (tr)</option>
+            <option value="ru">Russian (ru)</option>
+            <option value="nl">Dutch (nl)</option>
+            <option value="zh-cn">Chinese (zh-cn)</option>
+            <option value="ja">Japanese (ja)</option>
+            <option value="ko">Korean (ko)</option>
+        </select>
+    </div>
+</div>

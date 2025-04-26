@@ -1,0 +1,58 @@
+<!-- ElevenLabs Parameters Content -->
+<div class="mb-3 row">
+    <label for="elevenlabs-key-select" class="col-sm-3 col-form-label pt-0">API Key:</label> {# Added 'for' attribute #}
+    <div class="col-sm-9">
+        <select id="elevenlabs-key-select" class="form-select mb-2">
+            <option value="">-- Select stored key --</option>
+            {% for key_name in elevenlabs_keys %} {# <--- Data comes from Flask context #}
+            <option value="{{ key_name }}">{{ key_name }}</option>
+            {% endfor %}
+        </select>
+        <div class="input-group mb-1">
+            <input type="password" id="elevenlabs-api-key" class="form-control"
+                   placeholder="Or enter API key manually">
+            <button id="validate-key-btn" class="btn btn-outline-primary" type="button">
+                Validate
+            </button>
+        </div>
+        <small class="form-text d-block">
+            Status: <span id="key-status" class="text-muted">Not validated</span>
+        </small>
+    </div>
+</div>
+<div class="mb-3 row align-items-center">
+    <label class="col-sm-3 col-form-label">Subscription:</label> {# ID niet nodig voor een label zonder input #}
+    <div class="col-sm-9">
+        <div class="d-flex align-items-center">
+            <span id="elevenlabs-credits" class="form-control-plaintext pe-2 small">
+                Validate key to check credits.
+            </span>
+            <button id="refresh-credits-btn" class="btn btn-sm btn-outline-secondary refresh-btn" disabled title="Refresh Credits">
+                <i class="bi bi-arrow-clockwise m-0"></i>
+            </button>
+        </div>
+    </div>
+</div>
+<div class="mb-3 row align-items-center">
+    <label for="elevenlabs-voice" class="col-sm-3 col-form-label">Voice:</label>
+    <div class="col-sm-9">
+        <div class="input-group">
+            <select id="elevenlabs-voice" class="form-select" disabled>
+                <option value="">-- Validate API key first --</option>
+            </select>
+            <button id="refresh-voices-btn" class="btn btn-outline-secondary refresh-btn" disabled title="Refresh Voices">
+                <i class="bi bi-arrow-clockwise m-0"></i>
+            </button>
+        </div>
+    </div>
+</div>
+<div class="mb-3 row align-items-center">
+    <label for="elevenlabs-model" class="col-sm-3 col-form-label">Model:</label>
+    <div class="col-sm-9">
+        <select id="elevenlabs-model" class="form-select">
+            {% for model in elevenlabs_models %} {# <--- Data comes from Flask context #}
+            <option value="{{ model }}">{{ model }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>

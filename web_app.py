@@ -270,7 +270,7 @@ def synthesize():
                          # Decide how to handle save error - maybe fail the job?
                          # For now, we'll just log and proceed without a speaker file
                          speaker_wav_path = None
-             elif not data.get('speaker_sample'):
+             elif data.get('speaker_sample'):
                  sample_filename = data.get('speaker_sample')
                  if sample_filename:
                      # Construct the full path to the sample file
