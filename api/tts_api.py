@@ -53,20 +53,23 @@ class MultiTTSAPI:
                         text: str,
                         output_path: str,
                         language: str = "en",
-                        speaker_wav_path: Optional[str] = None) -> Tuple[bool, str]:
+                        speaker_wav_path: Optional[str] = None,
+                        model_key: str = "xtts_v2") -> Tuple[bool, str]:  # NEW parameter
         """
-        Synthesize text using XTTSv2.
+        Synthesize text using XTTSv2 with model selection.
 
         Args:
             text: The text to synthesize
             output_path: Path to save the output WAV file
             language: Language code (e.g., "en", "nl", "fr")
             speaker_wav_path: Path to an optional speaker reference WAV
+            model_key: XTTS model variant to use (e.g., "xtts_v2", "tacotron2_ddc")
 
         Returns:
             A tuple (success: bool, message: str)
         """
-        logger.info(f"XTTSv2 synthesis requested: language={language}, speaker={speaker_wav_path or 'default'}")
+        logger.info(
+            f"TTS synthesis requested: model={model_key}, language={language}, speaker={speaker_wav_path or 'default'}")
         self._ensure_output_dir_exists(output_path)
 
         try:
@@ -74,11 +77,12 @@ class MultiTTSAPI:
                 text=text,
                 speaker_wav_path=speaker_wav_path,
                 language=language,
-                output_path=output_path
+                output_path=output_path,
+                model_key=model_key  # NEW: Pass model key
             )
         except Exception as e:
-            logger.error(f"XTTSv2 synthesis failed: {e}")
-            return False, f"XTTSv2 synthesis failed: {e}"
+            logger.error(f"TTS synthesis failed: {e}")
+            return False, f"TTS synthesis failed: {e}"
 
     # --- Piper Methods ---
 
@@ -274,6 +278,49 @@ class MultiTTSAPI:
             return False, f"ElevenLabs synthesis failed: {e}"
 
     # --- Utility Methods ---
+    def get_xtts_models(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get available XTTS models.
+
+        Returns:
+            Dictionary of available XTTS models with their information
+        """
+        try:
+            return xtts_engine.get_available_models()
+        except Exception as e:
+            logger.error(f"Error getting XTTS models: {e}")
+            return {}
+
+    def get_xtts_model_languages(self, model_key: str) -> List[str]:
+        """
+        Get supported languages for a specific XTTS model.
+
+        Args:
+            model_key: The model key (e.g., "xtts_v2")
+
+        Returns:
+            List of supported language codes
+        """
+        try:
+            return xtts_engine.get_model_languages(model_key)
+        except Exception as e:
+            logger.error(f"Error getting languages for XTTS model {model_key}: {e}")
+            return []
+
+    def clear_xtts_cache(self) -> bool:
+        """
+        Clear the XTTS model cache to free memory.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            xtts_engine.clear_model_cache()
+            logger.info("XTTS model cache cleared successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing XTTS model cache: {e}")
+            return False
 
     def _ensure_output_dir_exists(self, output_path: str) -> None:
         """Ensure the output directory for a file exists."""
@@ -285,8 +332,10 @@ class MultiTTSAPI:
     @property
     def available_models(self) -> Dict[str, str]:
         """Return information about available models."""
+        xtts_info = "Available XTTS models: " + ", ".join(self.get_xtts_models().keys())
+
         return {
-            "XTTSv2": "tts_models/multilingual/multi-dataset/xtts_v2",
+            "XTTSv2": xtts_info,
             "Piper": f"Check {self.DEFAULT_PIPER_MODEL_DIR} directory for available models",
             "Bark": "suno/bark-small or suno/bark",
             "ElevenLabs": ", ".join(elevenlabs_engine.ELEVENLABS_MODELS)
@@ -310,19 +359,28 @@ if __name__ == "__main__":
     # Example of how to use the API
     api = MultiTTSAPI()
 
-    # Example: XTTSv2
-    text = "This is a test of the TTS API."
-    output_path = "audio_output/api_test_xtts.wav"
+    # Example: List available XTTS models
+    print("Available XTTS models:")
+    for model_key, model_info in api.get_xtts_models().items():
+        print(f"- {model_key}: {model_info['name']}")
+        print(f"  Languages: {', '.join(model_info['languages'])}")
+        print(f"  Description: {model_info['description']}")
+        print()
+
+    # Example: XTTSv2 with specific model
+    text = "This is a test of the TTS API with model selection."
+    output_path = "audio_output/api_test_xtts_v2.wav"
 
     success, message = api.synthesize_xtts(
         text=text,
         output_path=output_path,
-        language="en"
+        language="en",
+        model_key="xtts_v2"  # NEW: Specify model
     )
 
     print(f"XTTSv2 Result: {message}")
 
     # Example: Get available models info
-    print("\nAvailable Models:")
+    print("\nAll Available Models:")
     for model, info in api.available_models.items():
         print(f"- {model}: {info}")

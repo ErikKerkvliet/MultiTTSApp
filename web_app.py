@@ -151,22 +151,69 @@ def index():
     audio_files = get_audio_files()
     piper_models = get_piper_models()
 
-    # Get ElevenLabs API keys from environment (similar to desktop app)
+    # Get ElevenLabs API keys from environment (existing code)
     elevenlabs_api_keys = {}
     key_prefix = "ELEVENLABS_API_KEY_"
     for key, value in os.environ.items():
         if key.startswith(key_prefix) and value:
             name = key.replace(key_prefix, "")
             if name:
-                elevenlabs_api_keys[name] = True  # Just store that we have this key (don't expose the actual key)
+                elevenlabs_api_keys[name] = True
 
-    # Get speaker samples
+    # Get speaker samples (existing code)
     speaker_samples = []
     speaker_dir = tts_api.DEFAULT_SPEAKER_DIR
     if os.path.exists(speaker_dir):
         for filename in os.listdir(speaker_dir):
             if filename.endswith('.wav'):
                 speaker_samples.append(filename)
+
+    # NEW: Get XTTS models from configuration
+    xtts_models = {}
+    try:
+        # Try to import the configuration
+        from config.tts_models_config import get_enabled_models
+        enabled_models = get_enabled_models()
+
+        # Filter and format for web template
+        for model_key, model_config in enabled_models.items():
+            xtts_models[model_key] = {
+                'name': model_config.get('name', model_key),
+                'description': model_config.get('description', ''),
+                'languages': model_config.get('languages', ['en']),
+                'type': model_config.get('type', 'standard')
+            }
+
+        logger.info(f"Loaded {len(xtts_models)} XTTS models for web interface: {list(xtts_models.keys())}")
+
+    except ImportError:
+        logger.warning("XTTS models configuration not found, using fallback models")
+        # Fallback models if configuration is not available
+        xtts_models = {
+            "xtts_v2": {
+                "name": "XTTSv2 (Multilingual)",
+                "description": "Latest XTTS model with best quality and multilingual support",
+                "languages": ["en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl"],
+                "type": "xtts"
+            },
+            "tacotron2_ddc": {
+                "name": "Tacotron2-DDC (English)",
+                "description": "High quality English model",
+                "languages": ["en"],
+                "type": "standard"
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error loading XTTS models configuration: {e}")
+        # Minimal fallback
+        xtts_models = {
+            "xtts_v2": {
+                "name": "XTTSv2 (Multilingual)",
+                "description": "Default XTTS model",
+                "languages": ["en", "nl"],
+                "type": "xtts"
+            }
+        }
 
     return render_template(
         'index.html',
@@ -175,9 +222,9 @@ def index():
         bark_voices=tts_api.default_bark_voices,
         elevenlabs_models=elevenlabs_engine.ELEVENLABS_MODELS,
         elevenlabs_keys=list(elevenlabs_api_keys.keys()),
-        speaker_samples=speaker_samples
+        speaker_samples=speaker_samples,
+        xtts_models=xtts_models
     )
-
 
 @app.route('/audio/<filename>')
 def serve_audio(filename):
@@ -247,52 +294,72 @@ def synthesize():
         # --- Handle XTTSv2, Piper, Bark ---
         # (Ensure their logic also initializes the job_id in synthesis_jobs)
         elif model_type == 'XTTSv2':
-             # ... (extract params, start thread, init job_id) ...
-             language = data.get('language', 'en')
-             speaker_wav_path = None
-             # Handle speaker file upload/selection as before...
-             if 'speaker_file' in request.files and request.files['speaker_file'].filename:
-                 file = request.files['speaker_file']
-                 if file and file.filename and file.filename.lower().endswith('.wav'):
-                     try:
-                         # Generate a unique, secure filename for the upload
-                         unique_prefix = str(uuid.uuid4())[:8]
-                         filename = secure_filename(f"{unique_prefix}_{file.filename}")
-                         upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            # Extract parameters
+            language = data.get('language', 'en')
+            model_key = data.get('model_key', 'xtts_v2')  # NEW: Get model key from form
+            speaker_wav_path = None
 
-                         # Save the uploaded file temporarily
-                         file.save(upload_path)
-                         speaker_wav_path = upload_path
-                         uploaded_speaker_file = upload_path  # Store path for potential cleanup later
-                         logger.info(f"Saved uploaded speaker file to: {upload_path}")
-                     except Exception as e:
-                         logger.error(f"Error saving uploaded speaker file: {e}", exc_info=True)
-                         # Decide how to handle save error - maybe fail the job?
-                         # For now, we'll just log and proceed without a speaker file
-                         speaker_wav_path = None
-             elif data.get('speaker_sample'):
-                 sample_filename = data.get('speaker_sample')
-                 if sample_filename:
-                     # Construct the full path to the sample file
-                     # Use secure_filename even for samples for safety
-                     safe_sample_filename = secure_filename(sample_filename)
-                     sample_path = os.path.join(tts_api.DEFAULT_SPEAKER_DIR, safe_sample_filename)
+            # Log the model selection
+            logger.info(f"XTTSv2 synthesis requested: model={model_key}, language={language}")
 
-                     # IMPORTANT: Verify the sample file actually exists
-                     if os.path.exists(sample_path):
-                         speaker_wav_path = sample_path
-                         logger.info(f"Using selected speaker sample: {sample_path}")
-                     else:
-                         logger.warning(f"Selected speaker sample file not found: {sample_path}")
-                         # Proceed without a speaker file if the selected one doesn't exist
+            # Validate model key against available models
+            try:
+                from config.tts_models_config import get_enabled_models
+                available_models = get_enabled_models()
+                if model_key not in available_models:
+                    logger.warning(f"Invalid XTTS model key: {model_key}, using default")
+                    model_key = 'xtts_v2'
+                else:
+                    model_info = available_models[model_key]
+                    supported_languages = model_info.get('languages', [])
+                    if language not in supported_languages:
+                        logger.warning(
+                            f"Language '{language}' not supported by model '{model_key}'. Supported: {supported_languages}")
+                        # Don't fail, let the engine handle it
+            except ImportError:
+                logger.warning("XTTS models configuration not available for validation")
+            except Exception as e:
+                logger.error(f"Error validating XTTS model: {e}")
 
-                 # If still no path, log it
-             if not speaker_wav_path:
-                 logger.info("No speaker WAV file uploaded or selected (or error occurred). Using default XTTS voice.")
+            # Handle speaker file upload/selection (existing code - keep as is)
+            if 'speaker_file' in request.files and request.files['speaker_file'].filename:
+                file = request.files['speaker_file']
+                if file and file.filename and file.filename.lower().endswith('.wav'):
+                    try:
+                        unique_prefix = str(uuid.uuid4())[:8]
+                        filename = secure_filename(f"{unique_prefix}_{file.filename}")
+                        upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                        file.save(upload_path)
+                        speaker_wav_path = upload_path
+                        logger.info(f"Saved uploaded speaker file to: {upload_path}")
+                    except Exception as e:
+                        logger.error(f"Error saving uploaded speaker file: {e}", exc_info=True)
+                        speaker_wav_path = None
+            elif data.get('speaker_sample'):
+                sample_filename = data.get('speaker_sample')
+                if sample_filename:
+                    safe_sample_filename = secure_filename(sample_filename)
+                    sample_path = os.path.join(tts_api.DEFAULT_SPEAKER_DIR, safe_sample_filename)
+                    if os.path.exists(sample_path):
+                        speaker_wav_path = sample_path
+                        logger.info(f"Using selected speaker sample: {sample_path}")
+                    else:
+                        logger.warning(f"Selected speaker sample file not found: {sample_path}")
 
-             thread_params = {'language': language, 'speaker_wav_path': speaker_wav_path}
-             threading.Thread(target=run_synthesis_job, args=(job_id, 'xtts', text, output_path, thread_params), daemon=True).start()
-             return jsonify({'success': True, 'message': 'Synthesis job started', 'job_id': job_id})
+            if not speaker_wav_path:
+                logger.info("No speaker WAV file uploaded or selected. Using default XTTS voice.")
+
+            # NEW: Pass model_key to thread parameters
+            thread_params = {
+                'language': language,
+                'speaker_wav_path': speaker_wav_path,
+                'model_key': model_key  # NEW: Include model key
+            }
+            threading.Thread(target=run_synthesis_job, args=(job_id, 'xtts', text, output_path, thread_params),
+                             daemon=True).start()
+            return jsonify({'success': True, 'message': 'Synthesis job started', 'job_id': job_id})
+
+
 
         elif model_type == 'Piper':
              # ... (extract params, start thread, init job_id) ...
@@ -346,7 +413,8 @@ def run_synthesis_job(job_id, engine_type, text, output_path, params):
                 text=text,
                 output_path=output_path,
                 language=params.get('language', 'en'),
-                speaker_wav_path=params.get('speaker_wav_path')
+                speaker_wav_path=params.get('speaker_wav_path'),
+                model_key=params.get('model_key', 'xtts_v2')  # NEW: Pass model key
             )
         elif engine_type == 'piper':
             success, message = tts_api.synthesize_piper(

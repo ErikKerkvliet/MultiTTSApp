@@ -1,14 +1,15 @@
-// static/js/xtts_ui.js
+// static/js/xtts_ui.js - UPDATED FOR MODEL SELECTION
 
 const XttsUI = (() => {
-    // --- DOM Elements (Scoped to this module) ---
-    let speakerSampleSelect, speakerWavUpload, xttsLanguageSelect,
-        speakerSampleWrapper, speakerUploadWrapper, speakerRecordingWrapper,
-        recordBtn, stopRecordBtn, useRecordBtn, discardRecordBtn,
-        recordingStatus, recordingPreview, clearSpeakerBtn;
+    // --- DOM Elements ---
+    let speakerSampleSelect, speakerWavUpload, xttsLanguageSelect, xttsModelSelect;
+    let speakerSampleWrapper, speakerUploadWrapper, speakerRecordingWrapper;
+    let recordBtn, stopRecordBtn, useRecordBtn, discardRecordBtn;
+    let recordingStatus, recordingPreview, clearSpeakerBtn;
+    let modelDescription, voiceCloningIndicator;
 
-    // --- State (Scoped to this module) ---
-    let activeSpeakerSource = null; // 'sample', 'upload', 'recording', or null
+    // --- State ---
+    let activeSpeakerSource = null;
     let mediaRecorder = null;
     let audioChunks = [];
     let recordedSpeakerBlob = null;
@@ -16,11 +17,84 @@ const XttsUI = (() => {
     let recordingStartTime;
     let recordingTimerInterval;
 
+    // Language name mapping
+    const languageNames = {
+        "en": "English", "es": "Spanish", "fr": "French", "de": "German",
+        "it": "Italian", "pt": "Portuguese", "pl": "Polish", "tr": "Turkish",
+        "ru": "Russian", "nl": "Dutch", "cs": "Czech", "ar": "Arabic",
+        "zh-cn": "Chinese", "ja": "Japanese", "hu": "Hungarian",
+        "ko": "Korean", "hi": "Hindi"
+    };
+
     // --- Private Helper Functions ---
+    function _updateModelInfo() {
+        if (!xttsModelSelect || !modelDescription) return;
+
+        const selectedOption = xttsModelSelect.options[xttsModelSelect.selectedIndex];
+        if (!selectedOption) return;
+
+        const modelKey = selectedOption.value;
+        const modelType = selectedOption.dataset.type;
+
+        // Update description from the option text and type
+        let description = selectedOption.textContent;
+        if (modelType === 'xtts') {
+            description += " - Supports voice cloning with speaker samples";
+        } else if (modelType === 'multispeaker') {
+            description += " - Multiple built-in voices available";
+        } else if (modelType === 'standard') {
+            description += " - High-quality single speaker model";
+        }
+
+        modelDescription.textContent = description;
+
+        // Show/hide voice cloning indicator
+        if (voiceCloningIndicator) {
+            if (modelType === 'xtts') {
+                voiceCloningIndicator.style.display = 'block';
+            } else {
+                voiceCloningIndicator.style.display = 'none';
+            }
+        }
+
+        console.log(`XTTS: Model info updated for ${modelKey} (${modelType})`);
+    }
+
+    function _updateLanguageOptions() {
+        if (!xttsModelSelect || !xttsLanguageSelect) return;
+
+        const selectedOption = xttsModelSelect.options[xttsModelSelect.selectedIndex];
+        const supportedLanguages = selectedOption.dataset.languages || '';
+        const languageList = supportedLanguages.split(',').filter(lang => lang.trim());
+
+        // Clear existing options
+        xttsLanguageSelect.innerHTML = '';
+
+        // Add new options based on selected model
+        languageList.forEach(langCode => {
+            const langName = languageNames[langCode] || langCode.toUpperCase();
+            const option = document.createElement('option');
+            option.value = langCode;
+            option.textContent = `${langName} (${langCode})`;
+            xttsLanguageSelect.appendChild(option);
+        });
+
+        // Set default to Dutch if available, otherwise English, otherwise first option
+        if (languageList.includes('nl')) {
+            xttsLanguageSelect.value = 'nl';
+        } else if (languageList.includes('en')) {
+            xttsLanguageSelect.value = 'en';
+        } else if (languageList.length > 0) {
+            xttsLanguageSelect.value = languageList[0];
+        }
+
+        console.log(`XTTS: Updated language options for model. Available: ${languageList.join(', ')}`);
+    }
+
     function _updateRecordingStatus(message, statusClass = '') {
         if (!recordingStatus) return;
         recordingStatus.textContent = `Status: ${message}`;
-        recordingStatus.className = 'mt-2 small'; // Reset base class
+        recordingStatus.className = 'mt-2 small';
         if (statusClass === 'recording') recordingStatus.classList.add('text-danger', 'fw-bold');
         else if (statusClass === 'available') recordingStatus.classList.add('text-success');
         else if (statusClass === 'error') recordingStatus.classList.add('text-danger');
@@ -34,7 +108,7 @@ const XttsUI = (() => {
         if(recordingPreview) {
             recordingPreview.style.display = 'none';
             recordingPreview.removeAttribute('src');
-            URL.revokeObjectURL(recordingPreview.src); // Clean up previous blob URL
+            if (recordingPreview.src) URL.revokeObjectURL(recordingPreview.src);
         }
         if(fullReset && recordingStatus) _updateRecordingStatus("Idle");
         clearInterval(recordingTimerInterval);
@@ -62,7 +136,7 @@ const XttsUI = (() => {
         }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            setActiveSpeakerSource(null); // Clear others
+            setActiveSpeakerSource(null);
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
 
@@ -70,7 +144,7 @@ const XttsUI = (() => {
 
             mediaRecorder.onstop = () => {
                 if (audioChunks.length > 0) {
-                    recordedSpeakerBlob = new Blob(audioChunks, { type: 'audio/wav' }); // Use WAV type
+                    recordedSpeakerBlob = new Blob(audioChunks, { type: 'audio/wav' });
                     const audioUrl = URL.createObjectURL(recordedSpeakerBlob);
                     recordingPreview.src = audioUrl;
                     recordingPreview.style.display = 'block';
@@ -142,10 +216,11 @@ const XttsUI = (() => {
 
     // --- Public Functions ---
     function init() {
-        // Select elements after DOM is loaded
+        // Select elements
         speakerSampleSelect = document.getElementById('speaker-sample-select');
         speakerWavUpload = document.getElementById('speaker-wav-upload');
         xttsLanguageSelect = document.getElementById('xtts-language');
+        xttsModelSelect = document.getElementById('xtts-model'); // NEW
         speakerSampleWrapper = document.getElementById('speaker-sample-wrapper');
         speakerUploadWrapper = document.getElementById('speaker-upload-wrapper');
         speakerRecordingWrapper = document.getElementById('speaker-recording-wrapper');
@@ -156,6 +231,8 @@ const XttsUI = (() => {
         recordingStatus = document.getElementById('recording-status');
         recordingPreview = document.getElementById('recording-preview');
         clearSpeakerBtn = document.getElementById('clear-speaker');
+        modelDescription = document.getElementById('model-description'); // NEW
+        voiceCloningIndicator = document.getElementById('voice-cloning-indicator'); // NEW
 
         // Attach listeners
         if (speakerSampleSelect) speakerSampleSelect.addEventListener('change', () => setActiveSpeakerSource(speakerSampleSelect.value ? 'sample' : null));
@@ -166,8 +243,19 @@ const XttsUI = (() => {
         if (discardRecordBtn) discardRecordBtn.addEventListener('click', _discardRecording);
         if (clearSpeakerBtn) clearSpeakerBtn.addEventListener('click', clearSpeakerRefs);
 
-        _resetRecordingState(); // Initial cleanup
-        console.log("XTTS UI Initialized");
+        // NEW: Model selection listeners
+        if (xttsModelSelect) {
+            xttsModelSelect.addEventListener('change', () => {
+                _updateLanguageOptions();
+                _updateModelInfo();
+            });
+            // Initialize on load
+            _updateLanguageOptions();
+            _updateModelInfo();
+        }
+
+        _resetRecordingState();
+        console.log("XTTS UI Initialized with model selection");
     }
 
     function setActiveSpeakerSource(sourceType) {
@@ -178,9 +266,9 @@ const XttsUI = (() => {
         if (sourceType !== 'sample' && speakerSampleSelect) speakerSampleSelect.value = '';
         if (sourceType !== 'upload' && speakerWavUpload) speakerWavUpload.value = '';
         if (sourceType !== 'recording') {
-             if (recordedSpeakerBlob) URL.revokeObjectURL(recordingPreview.src); // Clean up blob URL if discarding recording source
+             if (recordedSpeakerBlob && recordingPreview.src) URL.revokeObjectURL(recordingPreview.src);
              recordedSpeakerBlob = null;
-            _resetRecordingUI(true); // Reset recording UI and status text
+            _resetRecordingUI(true);
         }
 
         // Update visual active state
@@ -191,30 +279,37 @@ const XttsUI = (() => {
         if (sourceType === 'sample' && speakerSampleWrapper) speakerSampleWrapper.classList.add('speaker-source-active');
         else if (sourceType === 'upload' && speakerUploadWrapper) speakerUploadWrapper.classList.add('speaker-source-active');
         else if (sourceType === 'recording' && speakerRecordingWrapper && recordedSpeakerBlob) speakerRecordingWrapper.classList.add('speaker-source-active');
-        else activeSpeakerSource = null; // Clear state if no valid source
+        else activeSpeakerSource = null;
 
         console.log(`XTTS: Active speaker source is now: ${activeSpeakerSource}`);
     }
 
      function clearSpeakerRefs() {
-         setActiveSpeakerSource(null); // This clears all inputs and states
+         setActiveSpeakerSource(null);
          console.log("XTTS: All speaker references cleared.");
      }
 
     function getFormData(formData) {
-        // Basis check of de taal selector bestaat en een waarde heeft
-        if (!xttsLanguageSelect || !xttsLanguageSelect.value) {
-             console.error("XTTS Error: Language select element not found or no language selected.");
-             // Optioneel: geef hier specifiekere feedback, of laat main.js de algemene fout tonen.
-             return false; // Stop als taal niet geselecteerd is (onwaarschijnlijk met <select>)
+        // Check model and language selection
+        if (!xttsModelSelect || !xttsLanguageSelect) {
+            console.error("XTTS Error: Model or language select elements not found.");
+            return false;
         }
 
-        // Voeg taal toe
-        formData.append('language', xttsLanguageSelect.value);
-        console.log(`XTTS: Getting form data. Active source: ${activeSpeakerSource}. Language: ${xttsLanguageSelect.value}`);
+        const selectedModel = xttsModelSelect.value;
+        const selectedLanguage = xttsLanguageSelect.value;
 
-        // Voeg speaker referentie toe (als die actief is)
-        // Gebruik optional chaining (?.) voor robuustheid voor het geval elementen niet gevonden zijn
+        if (!selectedModel || !selectedLanguage) {
+            console.error("XTTS Error: Model or language not selected.");
+            return false;
+        }
+
+        // Add model and language
+        formData.append('model_key', selectedModel); // NEW: Model key
+        formData.append('language', selectedLanguage);
+        console.log(`XTTS: Getting form data. Model: ${selectedModel}, Language: ${selectedLanguage}, Active source: ${activeSpeakerSource}`);
+
+        // Add speaker reference if active
         if (activeSpeakerSource === 'sample' && speakerSampleSelect?.value) {
             formData.append('speaker_sample', speakerSampleSelect.value);
             console.log(`XTTS: Appending sample: ${speakerSampleSelect.value}`);
@@ -225,22 +320,11 @@ const XttsUI = (() => {
             formData.append('speaker_file', recordedSpeakerBlob, 'recorded_speaker.wav');
              console.log(`XTTS: Appending recording blob.`);
         } else {
-             // Geen actieve speaker bron geselecteerd, backend gebruikt default stem
              console.log(`XTTS: No specific speaker reference appended (using default voice).`);
         }
 
-        // --- BELANGRIJK: Expliciet true retourneren ---
-        // Als we hier komen, zijn de basis parameters (taal) oké.
-        // De speaker ref is optioneel, dus we hoeven niet te falen als die mist.
         return true;
     }
-
-    // Expose public methods (inclusief de gewijzigde getFormData)
-    return {
-        init: init,
-        getFormData: getFormData
-        // Andere publieke methoden indien nodig
-    };
 
     // Expose public methods
     return {

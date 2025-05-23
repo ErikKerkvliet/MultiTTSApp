@@ -1,13 +1,27 @@
+# Core dependencies
 torch
 TTS
 piper-tts
-transformers>=4.31.0 # Bark vereist vaak een recente versie
-accelerate # Optioneel, maar kan helpen met Bark prestaties
-scipy # Nodig voor Bark om WAV op te slaan
-soundfile # Alternatief voor 'wave' module, soms robuuster
-pydub # Voor de optionele XTTS chunk concatenatie
+transformers>=4.31.0
+accelerate
+scipy
+soundfile
+pydub
 numpy
 pygame
 elevenlabs
 python-dotenv
-# Zorg ervoor dat je CUDA toolkit hebt geïnstalleerd als je GPU wilt gebruiken
+
+# New TTS model dependencies
+whisperspeech>=0.4.0        # OpenAI-TTS (WhisperSpeech)
+styletts2>=0.1.0            # StyleTTS2 
+tortoise-tts>=2.8.0         # Tortoise TTS
+melo-tts>=0.1.0             # MeloTTS
+
+# Additional audio processing
+librosa>=0.9.0              # Advanced audio processing
+torchaudio>=2.0.0           # PyTorch audio utilities
+
+# Web dependencies
+flask>=2.0.0
+werkzeug>=2.0.0

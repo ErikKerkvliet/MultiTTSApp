@@ -1,4 +1,79 @@
-<!-- XTTSv2 Parameters Content -->
+<!-- templates/partials/_xtts_params.html - COMPLETE REPLACEMENT -->
+<!-- XTTSv2 Parameters Content with Model Selection -->
+
+<!-- Model Selection (NEW) -->
+<div class="mb-3 row align-items-center">
+    <label for="xtts-model" class="col-sm-3 col-form-label">Model:</label>
+    <div class="col-sm-9">
+        <select id="xtts-model" class="form-select">
+            <optgroup label="🎯 XTTS Models (Voice Cloning)">
+                {% for model_key, model_info in xtts_models.items() if model_info.type == 'xtts' %}
+                <option value="{{ model_key }}"
+                        data-languages="{{ model_info.languages | join(',') }}"
+                        data-type="{{ model_info.type }}"
+                        data-description="{{ model_info.description }}"
+                        {% if model_key == 'xtts_v2' %}selected{% endif %}>
+                    {{ model_info.name }}
+                </option>
+                {% endfor %}
+            </optgroup>
+            <optgroup label="🔊 Standard Models">
+                {% for model_key, model_info in xtts_models.items() if model_info.type == 'standard' %}
+                <option value="{{ model_key }}"
+                        data-languages="{{ model_info.languages | join(',') }}"
+                        data-type="{{ model_info.type }}"
+                        data-description="{{ model_info.description }}">
+                    {{ model_info.name }}
+                </option>
+                {% endfor %}
+            </optgroup>
+            <optgroup label="👥 Multi-Speaker Models">
+                {% for model_key, model_info in xtts_models.items() if model_info.type == 'multispeaker' %}
+                <option value="{{ model_key }}"
+                        data-languages="{{ model_info.languages | join(',') }}"
+                        data-type="{{ model_info.type }}"
+                        data-description="{{ model_info.description }}">
+                    {{ model_info.name }}
+                </option>
+                {% endfor %}
+            </optgroup>
+        </select>
+        <small class="form-text text-muted">Choose TTS model variant</small>
+    </div>
+</div>
+
+<!-- Model Description (NEW) -->
+<div class="mb-3 row">
+    <div class="col-sm-3"></div>
+    <div class="col-sm-9">
+        <div id="model-description" class="small text-info bg-light p-2 rounded" style="min-height: 2.5em;">
+            Select a model to see description
+        </div>
+    </div>
+</div>
+
+<!-- Language Selection (UPDATED - now dynamic based on model) -->
+<div class="mb-3 row align-items-center">
+    <label for="xtts-language" class="col-sm-3 col-form-label">Language:</label>
+    <div class="col-sm-9">
+        <select id="xtts-language" class="form-select">
+            <!-- Populated dynamically by JavaScript -->
+        </select>
+        <small class="form-text text-muted">Language support varies by model</small>
+    </div>
+</div>
+
+<!-- Voice Cloning Capability Indicator (NEW) -->
+<div class="mb-3 row">
+    <div class="col-sm-3"></div>
+    <div class="col-sm-9">
+        <div id="voice-cloning-indicator" class="alert alert-info py-2" style="display: none;">
+            <i class="bi bi-mic text-primary me-2"></i>This model supports voice cloning with speaker samples
+        </div>
+    </div>
+</div>
+
+<!-- Speaker Reference Section -->
 <div class="mb-3 row">
     <label class="col-sm-3 col-form-label pt-0">Speaker Ref:</label>
     <div class="col-sm-9">
@@ -7,7 +82,7 @@
             <label for="speaker-sample-select" class="form-label small">Use Existing Sample:</label>
             <select id="speaker-sample-select" class="form-select form-select-sm">
                 <option value="">-- Select sample --</option>
-                {% for sample in speaker_samples %} {# <--- Data comes from Flask context #}
+                {% for sample in speaker_samples %}
                 <option value="{{ sample }}">{{ sample }}</option>
                 {% endfor %}
             </select>
@@ -46,25 +121,5 @@
         <button id="clear-speaker" class="btn btn-sm btn-outline-secondary mt-3" type="button" title="Clear speaker selection/upload/recording">
             <i class="bi bi-x-lg"></i> Clear All Speaker Refs
         </button>
-    </div>
-</div>
-<div class="mb-3 row align-items-center">
-    <label for="xtts-language" class="col-sm-3 col-form-label">Language:</label>
-    <div class="col-sm-9">
-        <select id="xtts-language" class="form-select">
-            <option value="en" selected>English (en)</option>
-            <option value="es">Spanish (es)</option>
-            <option value="fr">French (fr)</option>
-            <option value="de">German (de)</option>
-            <option value="it">Italian (it)</option>
-            <option value="pt">Portuguese (pt)</option>
-            <option value="pl">Polish (pl)</option>
-            <option value="tr">Turkish (tr)</option>
-            <option value="ru">Russian (ru)</option>
-            <option value="nl">Dutch (nl)</option>
-            <option value="zh-cn">Chinese (zh-cn)</option>
-            <option value="ja">Japanese (ja)</option>
-            <option value="ko">Korean (ko)</option>
-        </select>
     </div>
 </div>

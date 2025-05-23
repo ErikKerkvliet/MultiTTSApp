@@ -39,6 +39,14 @@ except ImportError as e:
     print(f"ERROR: Could not import UI engines. Error:\n{traceback.format_exc()}")
     print("Ensure the 'ui_engines' directory exists alongside app.py.")
     exit(1)
+
+try:
+    from config.tts_models_config import get_enabled_models, get_models_by_category
+    TTS_CONFIG_AVAILABLE = True
+    logging.info("TTS configuration loaded successfully")
+except ImportError:
+    TTS_CONFIG_AVAILABLE = False
+    logging.warning("TTS configuration not found - using basic XTTS only")
 # --------------------------------
 
 # --- Load Environment Variables ---
@@ -370,10 +378,47 @@ class TTSApp(tk.Tk):
         target_function = None
         try:
             if model_type == "XTTSv2":
-                params['speaker_wav_path'] = self.xtts_speaker_wav.get().strip() or None
-                params['language'] = self.xtts_language.get().strip()
-                if not params['language']: raise ValueError("XTTSv2 language is required.")
+                params['speaker_wav_path'] = self.xtts_speaker_wav.get().strip() or 'tts_engines/dummy_speaker.wav'
+
+                # Extract language code from display format
+                language_display = self.xtts_language.get().strip()
+                if "(" in language_display and ")" in language_display:
+                    start = language_display.rfind("(") + 1
+                    end = language_display.rfind(")")
+                    language_code = language_display[start:end]
+                else:
+                    language_code = "nl"  # fallback
+                params['language'] = language_code
+
+                # Extract model key from display format
+                model_display = self.xtts_model.get().strip()
+                model_key = "xtts_v2"  # default fallback
+
+                from tts_engines import xtts_engine
+
+                # Try to get the actual model key using the frame mapping
+                if hasattr(self.xtts_frame, '_model_mapping'):
+                    model_key = self.xtts_frame._model_mapping.get(model_display, "xtts_v2")
+                else:
+                    # Fallback: try to match by name
+                    try:
+                        available_models = xtts_engine.get_available_models()
+                        for key, info in available_models.items():
+                            if info['name'] in model_display:
+                                model_key = key
+                                break
+                    except:
+                        pass  # Use fallback
+
+                params['model_key'] = model_key  # NEW: Pass model key
+
+                if not params['language']:
+                    raise ValueError("TTS language is required.")
+
+
+                logging.info(f"TTS synthesis: model={model_key}, language={language_code}")
                 target_function = xtts_engine.synthesize_xtts
+
             elif model_type == "Piper":
                 params['model_onnx_path'] = self.piper_onnx_path.get().strip()
                 params['model_json_path'] = self.piper_json_path.get().strip()
@@ -448,7 +493,7 @@ class TTSApp(tk.Tk):
         """Initializes the TTSApp class, sets up UI and variables."""
         super().__init__()
         self.title("Multi TTS Synthesizer")
-        self.geometry("950x650")
+        self.geometry("950x665")
 
         # --- Initialize Pygame Mixer ---
         try:
@@ -465,8 +510,10 @@ class TTSApp(tk.Tk):
         # These need to be owned by the main app instance so they persist
         # and can be accessed by synthesis logic. They are passed to UI modules.
         self.model_choice = tk.StringVar(self)
-        # XTTS
-        self.xtts_speaker_wav = tk.StringVar(self); self.xtts_language = tk.StringVar(self, value="nl")
+
+        self.xtts_speaker_wav = tk.StringVar(self)
+        self.xtts_language = tk.StringVar(self, value="Dutch (nl)")
+        self.xtts_model = tk.StringVar(self, value="XTTSv2 (Multilingual)")
         # Piper
         self.piper_onnx_path = tk.StringVar(self); self.piper_json_path = tk.StringVar(self)
         # Bark
@@ -556,8 +603,12 @@ class TTSApp(tk.Tk):
         # --- Create Engine Parameter Frames using UI Modules ---
         # Store the returned frames as instance variables
         self.xtts_frame = xtts_ui.create_xtts_ui(
-            self.param_frame_container, self.xtts_speaker_wav, self.xtts_language,
-            self.browse_file, DEFAULT_SPEAKER_DIR
+            self.param_frame_container,
+            self.xtts_speaker_wav,
+            self.xtts_language,
+            self.browse_file,
+            DEFAULT_SPEAKER_DIR,
+            self.xtts_model,
         )
         self.piper_frame = piper_ui.create_piper_ui(
             self.param_frame_container, self.piper_onnx_path, self.piper_json_path,
@@ -584,7 +635,7 @@ class TTSApp(tk.Tk):
         text_frame.pack(fill=tk.BOTH, expand=True, pady=5, padx=5)
         self.text_input = scrolledtext.ScrolledText(text_frame, wrap=tk.WORD, height=10, undo=True)
         self.text_input.pack(fill=tk.BOTH, expand=True)
-        self.text_input.insert(tk.END, "Enter your text here...")
+        self.text_input.insert(tk.END, chars='')
         self.text_input.bind("<Button-3>", self._show_text_context_menu)
         self.text_input.bind("<Control-a>", self._text_select_all); self.text_input.bind("<Control-A>", self._text_select_all)
         self.text_input.bind("<Control-z>", self._text_undo); self.text_input.bind("<Control-Z>", self._text_undo)
@@ -605,7 +656,7 @@ class TTSApp(tk.Tk):
         action_frame = ttk.Frame(right_panel, padding="10")
         action_frame.pack(fill=tk.X, pady=5, padx=5)
         self.synthesize_button = ttk.Button(action_frame, text="Start Synthesis", command=self.start_synthesis_thread)
-        self.synthesize_button.pack(side=tk.LEFT, padx=10)
+        self.synthesize_button.pack(side=tk.LEFT, padx=10, anchor=tk.N)
         self.status_label = ttk.Label(action_frame, text="Ready.", anchor=tk.W)
         self.status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=10)
 
